@@ -106,12 +106,3 @@ Thumbs.db
 
 # WES Specific
 workingDir/
-endpoints.json
-projects.csv
-.gitlab-ci.yml
-swagger.yaml
-
-
-# Removing these until all indeed specific things are removed
-wes/static
-wes/templates
