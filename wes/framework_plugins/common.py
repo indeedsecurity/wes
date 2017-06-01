@@ -40,7 +40,7 @@ class JavaProcessor:
         self.webContextDir = self._find_java_web_context()
         self.javaCompilationUnits = {}  # Format: {'path/file.java': CompilationUnit}
         self.variableLookupTable = {}  # Format: {'VarFQN': value}
-        self.classLookupTable = {}  # Format: {'pkg.class': (path, node)}
+        self.classLookupTable = {}  # Format: {'pkg.class': (path, node, filepath)}
         # This table will only contain the MIs that we could resolve the FQNs for. This is something to keep in mind
         # when using the table because in it's current implementation it can't resolve trailed invocations or where it
         # can't find where a qualifier is defined.
@@ -84,7 +84,7 @@ class JavaProcessor:
             self.variableLookupTable.update(self._preprocess_java_variables(tree))
 
             # Construct the class lookup table
-            self.classLookupTable.update(self._preprocess_java_classes(tree))
+            self.classLookupTable.update(self._preprocess_java_classes(tree, filepath))
 
             # Construct a MethodInvocation Lookup take so we can quickly recurse
             # through all uses of a MethodDeclaration later on
@@ -291,7 +291,7 @@ class JavaProcessor:
             return None
         return fqn
 
-    def _preprocess_java_classes(self, tree):
+    def _preprocess_java_classes(self, tree, filepath):
         """
         This method pulls all of the ClassDeclarations out of a tree. It then
         computes a signature for each instance and adds them to a corresponding
@@ -307,7 +307,7 @@ class JavaProcessor:
                 fqn = ".".join([tree.package.name] + list(map(lambda x: x.name, classesInPath)) + [cd.name])
             else:
                 fqn = ".".join([tree.package.name, cd.name])
-            classes[fqn] = (path, cd)
+            classes[fqn] = (path, cd, filepath)
 
         return classes
 
@@ -636,6 +636,63 @@ class JavaProcessor:
                 return "parameter"
             elif type(element) is javalang.tree.PackageDeclaration:
                 return "package"
+
+    def find_code_base_dir(self, relativePath=None):
+        """
+        Find the base code directory. This is used in conjunction with a package line to construct the
+        path to a java file.
+        :param relativePath: A reference path if there are multiple base code dirs.
+        This is used to find the most likely base code path. Optional.
+        :return: A string with the base directory path
+        """
+        globPath = os.path.join(self.workingDir, '**', '*.java')
+        files = glob.glob(globPath, recursive=True)
+
+        baseCodePaths = set()
+
+        for srcFile in files:
+            with codecs.open(srcFile, 'r', 'utf-8') as f:
+                for line in f:
+                    if line.startswith('package '):
+                        # split on space and grab second element, replace . with /, and remove ;
+                        # from: "package com.indeed.security.wes.west.servlets.JS001;"
+                        # to: "com/indeed/security/wes/west/servlets"
+                        package = line.split(' ')[1].replace('.', '/').replace(';', '')
+
+                        baseCodePaths.add(srcFile.split(package.strip())[0])
+                        break
+                    else:
+                        continue
+
+        if len(baseCodePaths) == 1:
+            # If just one path return it
+            return baseCodePaths.pop()
+        elif len(baseCodePaths) > 1 and relativePath:
+            # Find the most likely base code path base on the relativePath
+            mostLikelyPath = {'path': None, 'similarity': 0}
+            splitRelativePath = relativePath.split('/')
+
+            for path in baseCodePaths:
+                similarity = 0
+                for index, value in enumerate(path.split('/')):
+                    if value == splitRelativePath[index]:
+                        similarity += 1
+                    else:
+                        break
+
+                if similarity > mostLikelyPath['similarity']:
+                    mostLikelyPath = {
+                        'similarity': similarity,
+                        'path': path
+                    }
+
+            return mostLikelyPath['path']
+
+        elif len(baseCodePaths) > 1:
+            # If no relativePath just return first result.
+            return baseCodePaths.pop()
+        else:
+            return None
 
 
 class PythonProcessor:

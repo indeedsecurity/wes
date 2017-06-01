@@ -189,7 +189,7 @@ class CustomFramework(Framework):
         """
         # Dynamically check if the class is a subclass of DispatcherServlet
         classPath = self._find_class_file_path(servletClass)
-        if os.path.isfile(classPath):
+        if classPath and os.path.isfile(classPath):
             test = codecs.open(classPath, 'r', 'utf-8').read()
             if 'extends DispatcherServlet' in test:
                 return True
@@ -204,39 +204,25 @@ class CustomFramework(Framework):
         :param className: The fully qualified name for a class. Ex: 'com.indeed.security.wes.west.servlets.JS001'
         :return: The constructed file path
         """
-        codeBaseDir = self._find_code_base_dir()
         try:
-            return os.path.join(codeBaseDir, className.replace('.', '/')) + '.java'
+            codeBaseDir = self.processor.find_code_base_dir()
+
+            classPath = os.path.join(codeBaseDir,
+                                     className.replace('.', '/')) + '.java'
+
+            if os.path.isfile(classPath):
+                return classPath
+            else:
+                # Let's attempt to find with classLookupTable
+                if className in self.processor.classLookupTable:
+                    # We found the file
+                    classPath = os.path.join(self.workingDir,
+                                             self.processor.classLookupTable[className][2])
+
+                    return classPath
+
         except TypeError:
             return None
-
-    def _find_code_base_dir(self):
-        """
-        Find the base code directory. This is used in conjunction with a package line to construct the
-        path to a java file.
-        :return: A string with the base directory path
-        """
-        globPath = os.path.join(self.workingDir, '**', '*.java')
-        files = glob.glob(globPath, recursive=True)
-
-        # We grab the first java file we found
-        javaFile = files[0]
-        codeBaseDir = None
-        with codecs.open(javaFile, 'r', 'utf-8') as f:
-            # Grab the first line
-            firstLine = f.readline()
-
-            # Make sure the first line has package in it
-            # TODO: add some handling if the first line isn't a package line
-            if 'package' in firstLine:
-                # split on space and grab second element, replace . with /, and remove ;
-                # from: "package com.indeed.security.wes.west.servlets.JS001;"
-                # to: "com/indeed/security/wes/west/servlets"
-                package = firstLine.split(' ')[1].replace('.', '/').replace(';', '')
-
-                codeBaseDir = javaFile.split(package.strip())[0]
-
-        return codeBaseDir
 
     def _find_request_get_param(self, endpoint):
         """

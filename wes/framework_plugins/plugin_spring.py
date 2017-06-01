@@ -50,21 +50,37 @@ class CustomFramework(Framework):
         for f in files:
             self._load_xml(f)
             if self.rootElement is not None:
+                for servlet in self.rootElement.iterfind(".//{{{}}}servlet-class".format(self.rootElement.nsmap[None])):
+                    if 'org.springframework.web.servlet.DispatcherServlet' in servlet.text:
+                        return True
+                    # Dynamically check if the class is a subclass of
+                    # DispatcherServlet
+                    codeBaseDir = self.processor.find_code_base_dir(f)
 
-                for servlet in self.rootElement.iterfind(".//{{{}}}servlet".format(self.rootElement.nsmap[None])):
-                    for child in servlet:
-                        if 'org.springframework.web.servlet.DispatcherServlet' in child.text:
+                    classPath = os.path.join(codeBaseDir,
+                                             servlet.text.replace('.', '/')) + '.java'
+
+                    if os.path.isfile(classPath):  # pragma: no cover
+                        fileContents = codecs.open(classPath, 'r', 'utf-8').read()
+                        if 'extends DispatcherServlet' in fileContents:
                             return True
-                        # Dynamically check if the class is a subclass of
-                        # DispatcherServlet
-                        codeBaseDir = os.path.join(self.workingDir, 'src', 'java')
+                        elif 'extends org.springframework.web.servlet.DispatcherServlet':
+                            return True
 
-                        classPath = os.path.join(codeBaseDir,
-                                                 child.text.replace('.', '/')) + '.java'
+        # If we couldn't construct the base code dir correctly let's just search
+        # the classLookupTable and see if it extends the DispatcherServlet
+        if self.rootElement is not None:
+            for servlet in self.rootElement.iterfind(".//{{{}}}servlet-class".format(self.rootElement.nsmap[None])):
+                if servlet.text in self.processor.classLookupTable:
+                    # We found the file lets see if it extends DispatcherServlet
+                    classPath = os.path.join(self.workingDir,
+                                             self.processor.classLookupTable[servlet.text][2])
 
-                        if os.path.isfile(classPath):  # pragma: no cover
-                            if 'extends DispatcherServlet' in codecs.open(classPath, 'r', 'utf-8').read():
-                                return True
+                    fileContents = codecs.open(classPath, 'r', 'utf-8').read()
+                    if 'extends DispatcherServlet' in fileContents:
+                        return True
+                    elif 'extends org.springframework.web.servlet.DispatcherServlet':
+                        return True
 
         # Let's see if the project is using the new method of implementing
         # spring. The new method deosn't require the web.xml file and just
