@@ -156,7 +156,8 @@ class CustomFramework(Framework):
                     continue  # the ReqMap is on a class we'll skip it for now
 
                 # Check if the parent class is an abstract class
-                if 'abstract' in self._get_parent_class(path).modifiers:
+                parentClass = self._get_parent_class(path)
+                if parentClass and hasattr(parentClass, 'modifiers') and 'abstract' in parentClass.modifiers:
                     # TODO: Handle abstract classes
                     continue  # ignoring abstract classes for now
 
