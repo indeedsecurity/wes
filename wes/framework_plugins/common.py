@@ -40,7 +40,7 @@ class JavaProcessor:
         self.webContextDir = self._find_java_web_context()
         self.javaCompilationUnits = {}  # Format: {'path/file.java': CompilationUnit}
         self.variableLookupTable = {}  # Format: {'VarFQN': value}
-        self.classLookupTable = {}  # Format: {'pkg.class': (path, node)}
+        self.classLookupTable = {}  # Format: {'pkg.class': (path, node, filepath)}
         # This table will only contain the MIs that we could resolve the FQNs for. This is something to keep in mind
         # when using the table because in it's current implementation it can't resolve trailed invocations or where it
         # can't find where a qualifier is defined.
@@ -64,7 +64,7 @@ class JavaProcessor:
         # Loop through the files looking for endpoints
         for f in projectFiles:
             # print("FILE: {}".format(f))
-            with codecs.open(f, 'r', 'utf-8') as fh:
+            with codecs.open(f, 'r', 'utf-8', 'ignore') as fh:
                 code = fh.read()
                 # Used javalang library to parse the code for easier analysis
                 try:
@@ -84,7 +84,7 @@ class JavaProcessor:
             self.variableLookupTable.update(self._preprocess_java_variables(tree))
 
             # Construct the class lookup table
-            self.classLookupTable.update(self._preprocess_java_classes(tree))
+            self.classLookupTable.update(self._preprocess_java_classes(tree, filepath))
 
             # Construct a MethodInvocation Lookup take so we can quickly recurse
             # through all uses of a MethodDeclaration later on
@@ -130,10 +130,17 @@ class JavaProcessor:
         classes = list(filter(lambda x: type(x) is javalang.tree.ClassDeclaration, path))
         classNames = list(map(lambda x: x.name, classes))
         qualifier = ".".join(classNames) if len(classes) > 0 else None
+
         if qualifier is not None:
-            return ".".join([compilationUnit.package.name, qualifier, member])
+            if compilationUnit.package is None:
+                return ".".join([qualifier, member])
+            else:
+                return ".".join([compilationUnit.package.name, qualifier, member])
         else:
-            return ".".join([compilationUnit.package.name, member])
+            if compilationUnit.package is None:
+                return member
+            else:
+                return ".".join([compilationUnit.package.name, member])
 
     def _resolve_binary_operation(self, var):
         """
@@ -282,7 +289,10 @@ class JavaProcessor:
                 fqn = ".".join([varDecl.path, node.member])
             elif type(varDecl) is javalang.tree.MethodDeclaration:
                 # The method invocation was of a method within the same class
-                fqn = ".".join([compilationUnit.package.name, self.get_class_declaration(path).name, varDecl.name])
+                if compilationUnit.package is not None:
+                    fqn = ".".join([compilationUnit.package.name, self.get_class_declaration(path).name, varDecl.name])
+                else:
+                    fqn = ".".join([self.get_class_declaration(path).name, varDecl.name])
             else:
                 fqn = self.resolve_type(varDecl.type.name, compilationUnit.package, imports)
                 fqn = ".".join([fqn, node.member])
@@ -291,7 +301,7 @@ class JavaProcessor:
             return None
         return fqn
 
-    def _preprocess_java_classes(self, tree):
+    def _preprocess_java_classes(self, tree, filepath):
         """
         This method pulls all of the ClassDeclarations out of a tree. It then
         computes a signature for each instance and adds them to a corresponding
@@ -304,10 +314,16 @@ class JavaProcessor:
         for path, cd in tree.filter(javalang.tree.ClassDeclaration):
             classesInPath = list(filter(lambda x: type(x) is javalang.tree.ClassDeclaration, path))
             if classesInPath:
-                fqn = ".".join([tree.package.name] + list(map(lambda x: x.name, classesInPath)) + [cd.name])
+                if tree.package is not None:
+                    fqn = ".".join([tree.package.name] + list(map(lambda x: x.name, classesInPath)) + [cd.name])
+                else:
+                    fqn = ".".join(list(map(lambda x: x.name, classesInPath)) + [cd.name])
             else:
-                fqn = ".".join([tree.package.name, cd.name])
-            classes[fqn] = (path, cd)
+                if tree.package is not None:
+                    fqn = ".".join([tree.package.name, cd.name])
+                else:
+                    fqn = cd.name
+            classes[fqn] = (path, cd, filepath)
 
         return classes
 
@@ -383,7 +399,7 @@ class JavaProcessor:
 
         # We've constructed the filepath let's now open it and search for params within the JSP
         try:
-            with codecs.open(jspPath, 'r', 'utf-8') as fh:
+            with codecs.open(jspPath, 'r', 'utf-8', 'ignore') as fh:
                 jsp = fh.read()
 
             pattern = re.compile(r'param\.(\w+)')
@@ -419,7 +435,10 @@ class JavaProcessor:
         # Didn't find it in the imports let's see if it's a local MemberReference
         className = list(filter(lambda x: type(x) is javalang.tree.ClassDeclaration, tree.types))[0].name
 
-        varPath = "{}.{}.{}".format(tree.package.name, className, member)
+        if tree.package is not None:
+            varPath = ".".join([tree.package.name, className, member])
+        else:
+            varPath = ".".join([className, member])
         if varPath in self.variableLookupTable:
             return self.variableLookupTable[varPath]
 
@@ -619,8 +638,12 @@ class JavaProcessor:
         if name in JAVA_PRIMITIVES:
             return name
         # Check package
-        if ".".join([packageDecl.name, parent]) in self.classLookupTable.keys():
-            return ".".join([packageDecl.name, name])
+        if packageDecl is not None:
+            if ".".join([packageDecl.name, parent]) in self.classLookupTable.keys():
+                return ".".join([packageDecl.name, name])
+        else:
+            if parent in self.classLookupTable.keys():
+                return name
         # Assume it is fqn
         return name
 
@@ -636,6 +659,63 @@ class JavaProcessor:
                 return "parameter"
             elif type(element) is javalang.tree.PackageDeclaration:
                 return "package"
+
+    def find_code_base_dir(self, relativePath=None):
+        """
+        Find the base code directory. This is used in conjunction with a package line to construct the
+        path to a java file.
+        :param relativePath: A reference path if there are multiple base code dirs.
+        This is used to find the most likely base code path. Optional.
+        :return: A string with the base directory path
+        """
+        globPath = os.path.join(self.workingDir, '**', '*.java')
+        files = glob.glob(globPath, recursive=True)
+
+        baseCodePaths = set()
+
+        for srcFile in files:
+            with codecs.open(srcFile, 'r', 'utf-8', 'ignore') as f:
+                for line in f:
+                    if line.startswith('package '):
+                        # split on space and grab second element, replace . with /, and remove ;
+                        # from: "package com.indeed.security.wes.west.servlets.JS001;"
+                        # to: "com/indeed/security/wes/west/servlets"
+                        package = line.split(' ')[1].replace('.', '/').replace(';', '')
+
+                        baseCodePaths.add(srcFile.split(package.strip())[0])
+                        break
+                    else:
+                        continue
+
+        if len(baseCodePaths) == 1:
+            # If just one path return it
+            return baseCodePaths.pop()
+        elif len(baseCodePaths) > 1 and relativePath:
+            # Find the most likely base code path base on the relativePath
+            mostLikelyPath = {'path': None, 'similarity': 0}
+            splitRelativePath = relativePath.split('/')
+
+            for path in baseCodePaths:
+                similarity = 0
+                for index, value in enumerate(path.split('/')):
+                    if value == splitRelativePath[index]:
+                        similarity += 1
+                    else:
+                        break
+
+                if similarity > mostLikelyPath['similarity']:
+                    mostLikelyPath = {
+                        'similarity': similarity,
+                        'path': path
+                    }
+
+            return mostLikelyPath['path']
+
+        elif len(baseCodePaths) > 1:
+            # If no relativePath just return first result.
+            return baseCodePaths.pop()
+        else:
+            return None
 
 
 class PythonProcessor:
@@ -666,7 +746,7 @@ class PythonProcessor:
         for f in projectFiles:
             # print("FILE: {}".format(f))
             try:
-                with codecs.open(f, 'r', 'utf-8') as fh:
+                with codecs.open(f, 'r', 'utf-8', 'ignore') as fh:
                     code = fh.read()
             except UnicodeDecodeError as e:
                 print(e)

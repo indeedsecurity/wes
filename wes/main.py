@@ -31,7 +31,7 @@ def load_db(databaseUri):
 
 def load_projects_csv(csvFile):  # pragma: no cover
     projects = []
-    with codecs.open(csvFile, 'r', 'utf-8') as fh:
+    with codecs.open(csvFile, 'r', 'utf-8', 'ignore') as fh:
         reader = csv.DictReader(fh)
         for row in reader:
             projects.append({'baseUrl': row['baseUrl'], 'gitRepo': row['gitRepo']})
@@ -352,8 +352,8 @@ def main(sysargs=[]):
         elif 'folder' in project:
             gitConfigPath = os.path.join(project['folder'], '.git', 'config')
 
-            if os.path.isfile(gitConfigPath):
-                try:
+            try:
+                if os.path.isfile(gitConfigPath):
                     import configparser
                     gitConfig = configparser.ConfigParser()
                     gitConfig.read_file(open(gitConfigPath))
@@ -363,12 +363,14 @@ def main(sysargs=[]):
                     projectRepoPath = project['gitRepo'].split(':')[-1][:-4]
                     projectName = project['gitRepo'].split('/')[-1][:-4]
                     productGroup = projectRepoPath.split('/')[0]
+                else:
+                    raise Exception('Not a git repo...')
 
-                except:
-                    project['gitRepo'] = None
-                    projectRepoPath = None
-                    projectName = None
-                    productGroup = None
+            except:
+                project['gitRepo'] = None
+                projectRepoPath = None
+                projectName = None
+                productGroup = None
 
         print("{}Processing the {} project{}".format(10 * "-", projectRepoPath, 10 * "-"))
 
