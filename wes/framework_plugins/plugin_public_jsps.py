@@ -51,7 +51,7 @@ class CustomFramework(Framework):
 
         for jsp in projectFiles:
             filepath = self.processor.strip_work_dir(jsp)
-            params = self.processor.get_jsp_params(jsp.split(self.webContextDir)[1])
+            params = self.processor.get_jsp_params(jsp.split(self.webContextDir)[-1])
             params = list(map(lambda x: {'name': x, 'filepath': filepath}, params))
             endpoints.append({
                 'filepath': filepath,

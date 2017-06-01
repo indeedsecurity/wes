@@ -143,15 +143,29 @@ class CustomFramework(Framework):
         if self.rootElement is not None:
             # loop through all the servlets
             servlets = []
-            for servletElement in self.rootElement.iterfind(".//{{{}}}servlet".format(self.namespace)):
+            if self.namespace is not None:
+                searchString = ".//{{{}}}servlet".format(self.namespace)
+            else:
+                searchString = ".//servlet"
+            for servletElement in self.rootElement.iterfind(searchString):
                 servlet = {}
                 for child in servletElement:
-                    if str(child.tag).strip() == "{{{}}}servlet-class".format(self.namespace):
+                    if self.namespace is not None:
+                        classSearchString = "{{{}}}servlet-class".format(self.namespace)
+                        nameSearchString = "{{{}}}servlet-name".format(self.namespace)
+                        jspSearchString = "{{{}}}jsp-file".format(self.namespace)
+                    else:
+                        classSearchString = "servlet-class"
+                        nameSearchString = "servlet-name"
+                        jspSearchString = "jsp-file"
+
+                    if str(child.tag).strip() == classSearchString:
                         servlet['class'] = str(child.text).strip()
-                    elif str(child.tag).strip() == "{{{}}}servlet-name".format(self.namespace):
+                    elif str(child.tag).strip() == nameSearchString:
                         servlet['name'] = str(child.text).strip()
-                    elif str(child.tag).strip() == "{{{}}}jsp-file".format(self.namespace):
+                    elif str(child.tag).strip() == jspSearchString:
                         servlet['templates'] = str(child.text).strip()
+
                 if servlet:
                     servlets.append(servlet)
             return servlets
@@ -165,18 +179,30 @@ class CustomFramework(Framework):
         """
         # Parse the XML file
         self._load_xml(webXmlLocation)
-        if self.rootElement is not None:
+        if self.namespace is not None:
             # loop through all the servlet-mappings
-            for servletElement in self.rootElement.iterfind(".//{{{}}}servlet-mapping".format(self.namespace)):
+            if None in self.rootElement.nsmap:
+                searchString = ".//{{{}}}servlet-mapping".format(self.namespace)
+            else:
+                searchString = ".//servlet-mapping"
+            for servletElement in self.rootElement.iterfind(searchString):
                 servlet = {
                     'path': set(),
                     'name': None
                 }
                 for child in servletElement:
-                    if str(child.tag).strip() == "{{{}}}url-pattern".format(self.namespace):
+                    if self.namespace is not None:
+                        urlSearchString = "{{{}}}url-pattern".format(self.namespace)
+                        nameSearchString = "{{{}}}servlet-name".format(self.namespace)
+                    else:
+                        urlSearchString = "url-pattern"
+                        nameSearchString = "servlet-name"
+
+                    if str(child.tag).strip() == urlSearchString:
                         servlet['path'].add(str(child.text).strip())
-                    elif str(child.tag).strip() == "{{{}}}servlet-name".format(self.namespace):
+                    elif str(child.tag).strip() == nameSearchString:
                         servlet['name'] = str(child.text).strip()
+
                 if servlet and 'name' in servlet and servlet['name'] == servletName:
                     return servlet['path']
 
@@ -190,7 +216,7 @@ class CustomFramework(Framework):
         # Dynamically check if the class is a subclass of DispatcherServlet
         classPath = self._find_class_file_path(servletClass)
         if classPath and os.path.isfile(classPath):
-            test = codecs.open(classPath, 'r', 'utf-8').read()
+            test = codecs.open(classPath, 'r', 'utf-8', 'ignore').read()
             if 'extends DispatcherServlet' in test:
                 return True
             else:
@@ -355,7 +381,10 @@ class CustomFramework(Framework):
         try:
             self.elementTree = ET.parse(filepath)
             self.rootElement = self.elementTree.getroot()
-            self.namespace = self.rootElement.nsmap[None]
+            if None in self.rootElement.nsmap:
+                self.namespace = self.rootElement.nsmap[None]
+            else:
+                self.namespace = None
         except Exception as e:
             print("There was a problem parsing the xml", e)
             self.elementTree = None

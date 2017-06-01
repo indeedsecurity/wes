@@ -64,7 +64,7 @@ class JavaProcessor:
         # Loop through the files looking for endpoints
         for f in projectFiles:
             # print("FILE: {}".format(f))
-            with codecs.open(f, 'r', 'utf-8') as fh:
+            with codecs.open(f, 'r', 'utf-8', 'ignore') as fh:
                 code = fh.read()
                 # Used javalang library to parse the code for easier analysis
                 try:
@@ -130,10 +130,17 @@ class JavaProcessor:
         classes = list(filter(lambda x: type(x) is javalang.tree.ClassDeclaration, path))
         classNames = list(map(lambda x: x.name, classes))
         qualifier = ".".join(classNames) if len(classes) > 0 else None
+
         if qualifier is not None:
-            return ".".join([compilationUnit.package.name, qualifier, member])
+            if compilationUnit.package is None:
+                return ".".join([qualifier, member])
+            else:
+                return ".".join([compilationUnit.package.name, qualifier, member])
         else:
-            return ".".join([compilationUnit.package.name, member])
+            if compilationUnit.package is None:
+                return member
+            else:
+                return ".".join([compilationUnit.package.name, member])
 
     def _resolve_binary_operation(self, var):
         """
@@ -282,7 +289,10 @@ class JavaProcessor:
                 fqn = ".".join([varDecl.path, node.member])
             elif type(varDecl) is javalang.tree.MethodDeclaration:
                 # The method invocation was of a method within the same class
-                fqn = ".".join([compilationUnit.package.name, self.get_class_declaration(path).name, varDecl.name])
+                if compilationUnit.package is not None:
+                    fqn = ".".join([compilationUnit.package.name, self.get_class_declaration(path).name, varDecl.name])
+                else:
+                    fqn = ".".join([self.get_class_declaration(path).name, varDecl.name])
             else:
                 fqn = self.resolve_type(varDecl.type.name, compilationUnit.package, imports)
                 fqn = ".".join([fqn, node.member])
@@ -304,9 +314,15 @@ class JavaProcessor:
         for path, cd in tree.filter(javalang.tree.ClassDeclaration):
             classesInPath = list(filter(lambda x: type(x) is javalang.tree.ClassDeclaration, path))
             if classesInPath:
-                fqn = ".".join([tree.package.name] + list(map(lambda x: x.name, classesInPath)) + [cd.name])
+                if tree.package is not None:
+                    fqn = ".".join([tree.package.name] + list(map(lambda x: x.name, classesInPath)) + [cd.name])
+                else:
+                    fqn = ".".join(list(map(lambda x: x.name, classesInPath)) + [cd.name])
             else:
-                fqn = ".".join([tree.package.name, cd.name])
+                if tree.package is not None:
+                    fqn = ".".join([tree.package.name, cd.name])
+                else:
+                    fqn = cd.name
             classes[fqn] = (path, cd, filepath)
 
         return classes
@@ -383,7 +399,7 @@ class JavaProcessor:
 
         # We've constructed the filepath let's now open it and search for params within the JSP
         try:
-            with codecs.open(jspPath, 'r', 'utf-8') as fh:
+            with codecs.open(jspPath, 'r', 'utf-8', 'ignore') as fh:
                 jsp = fh.read()
 
             pattern = re.compile(r'param\.(\w+)')
@@ -419,7 +435,10 @@ class JavaProcessor:
         # Didn't find it in the imports let's see if it's a local MemberReference
         className = list(filter(lambda x: type(x) is javalang.tree.ClassDeclaration, tree.types))[0].name
 
-        varPath = "{}.{}.{}".format(tree.package.name, className, member)
+        if tree.package is not None:
+            varPath = ".".join([tree.package.name, className, member])
+        else:
+            varPath = ".".join([className, member])
         if varPath in self.variableLookupTable:
             return self.variableLookupTable[varPath]
 
@@ -619,8 +638,12 @@ class JavaProcessor:
         if name in JAVA_PRIMITIVES:
             return name
         # Check package
-        if ".".join([packageDecl.name, parent]) in self.classLookupTable.keys():
-            return ".".join([packageDecl.name, name])
+        if packageDecl is not None:
+            if ".".join([packageDecl.name, parent]) in self.classLookupTable.keys():
+                return ".".join([packageDecl.name, name])
+        else:
+            if parent in self.classLookupTable.keys():
+                return name
         # Assume it is fqn
         return name
 
@@ -651,7 +674,7 @@ class JavaProcessor:
         baseCodePaths = set()
 
         for srcFile in files:
-            with codecs.open(srcFile, 'r', 'utf-8') as f:
+            with codecs.open(srcFile, 'r', 'utf-8', 'ignore') as f:
                 for line in f:
                     if line.startswith('package '):
                         # split on space and grab second element, replace . with /, and remove ;
@@ -723,7 +746,7 @@ class PythonProcessor:
         for f in projectFiles:
             # print("FILE: {}".format(f))
             try:
-                with codecs.open(f, 'r', 'utf-8') as fh:
+                with codecs.open(f, 'r', 'utf-8', 'ignore') as fh:
                     code = fh.read()
             except UnicodeDecodeError as e:
                 print(e)

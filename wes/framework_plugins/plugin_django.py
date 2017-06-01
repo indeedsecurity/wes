@@ -34,9 +34,9 @@ class CustomFramework(Framework):
 
         # Check if any of those *.py contain the string django or Django
         for f in files:
-            if 'django' in codecs.open(f, 'r', 'utf-8').read():
+            if 'django' in codecs.open(f, 'r', 'utf-8', 'ignore').read():
                 return True
-            elif 'Django' in codecs.open(f, 'r', 'utf-8').read():
+            elif 'Django' in codecs.open(f, 'r', 'utf-8', 'ignore').read():
                 return True
 
         return False

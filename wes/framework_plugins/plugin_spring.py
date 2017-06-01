@@ -26,11 +26,16 @@ class CustomFramework(Framework):
     def _load_xml(self, filepath):  # pragma: no cover
         """
         Used to load the web.xml file into the object for the identify method
+        :param filepath: The path to the web.xml
         :return: None
         """
         try:
             self.elementTree = ET.parse(filepath)
             self.rootElement = self.elementTree.getroot()
+            if None in self.rootElement.nsmap:
+                self.namespace = self.rootElement.nsmap[None]
+            else:
+                self.namespace = None
         except Exception as e:
             print("There was a problem parsing the xml", e)
             self.elementTree = None
@@ -44,13 +49,17 @@ class CustomFramework(Framework):
         :return: Boolean of whether it's a spring project
         """
         globPath = os.path.join(self.workingDir, '**', 'WEB-INF', 'web.xml')
-        files = glob.glob(globPath, recursive=True)
+        files = list(glob.glob(globPath, recursive=True))
 
         # Loop through files looking for spring declaration
         for f in files:
             self._load_xml(f)
             if self.rootElement is not None:
-                for servlet in self.rootElement.iterfind(".//{{{}}}servlet-class".format(self.rootElement.nsmap[None])):
+                if self.namespace is not None:
+                    searchString = ".//{{{}}}servlet-class".format(self.namespace)
+                else:
+                    searchString = ".//servlet-class"
+                for servlet in self.rootElement.iterfind(searchString):
                     if 'org.springframework.web.servlet.DispatcherServlet' in servlet.text:
                         return True
                     # Dynamically check if the class is a subclass of
@@ -61,7 +70,7 @@ class CustomFramework(Framework):
                                              servlet.text.replace('.', '/')) + '.java'
 
                     if os.path.isfile(classPath):  # pragma: no cover
-                        fileContents = codecs.open(classPath, 'r', 'utf-8').read()
+                        fileContents = codecs.open(classPath, 'r', 'utf-8', 'ignore').read()
                         if 'extends DispatcherServlet' in fileContents:
                             return True
                         elif 'extends org.springframework.web.servlet.DispatcherServlet':
@@ -69,18 +78,24 @@ class CustomFramework(Framework):
 
         # If we couldn't construct the base code dir correctly let's just search
         # the classLookupTable and see if it extends the DispatcherServlet
-        if self.rootElement is not None:
-            for servlet in self.rootElement.iterfind(".//{{{}}}servlet-class".format(self.rootElement.nsmap[None])):
-                if servlet.text in self.processor.classLookupTable:
-                    # We found the file lets see if it extends DispatcherServlet
-                    classPath = os.path.join(self.workingDir,
-                                             self.processor.classLookupTable[servlet.text][2])
+        for f in files:
+            self._load_xml(f)
+            if self.rootElement is not None:
+                if self.namespace is not None:
+                    searchString = ".//{{{}}}servlet-class".format(self.namespace)
+                else:
+                    searchString = ".//servlet-class"
+                for servlet in self.rootElement.iterfind(searchString):
+                    if servlet.text in self.processor.classLookupTable:
+                        # We found the file lets see if it extends DispatcherServlet
+                        classPath = os.path.join(self.workingDir,
+                                                 self.processor.classLookupTable[servlet.text][2])
 
-                    fileContents = codecs.open(classPath, 'r', 'utf-8').read()
-                    if 'extends DispatcherServlet' in fileContents:
-                        return True
-                    elif 'extends org.springframework.web.servlet.DispatcherServlet':
-                        return True
+                        fileContents = codecs.open(classPath, 'r', 'utf-8', 'ignore').read()
+                        if 'extends DispatcherServlet' in fileContents:
+                            return True
+                        elif 'extends org.springframework.web.servlet.DispatcherServlet':
+                            return True
 
         # Let's see if the project is using the new method of implementing
         # spring. The new method deosn't require the web.xml file and just
@@ -90,13 +105,15 @@ class CustomFramework(Framework):
         files = glob.glob(globPath, recursive=True)
 
         for f in files:  # pragma: no cover
-            with codecs.open(f, 'r', 'utf-8') as fh:
+            with codecs.open(f, 'r', 'utf-8', 'ignore') as fh:
                 contents = fh.read()
             if 'implements WebApplicationInitializer' in contents:
                 return True
             elif 'extends AbstractAnnotationConfigDispatcherServletInitializer' in contents:
                 return True
             elif 'extends WebMvcConfigurerAdapter' in contents:
+                return True
+            elif 'org.springframework.boot.SpringApplication' in contents:
                 return True
 
         return False
@@ -511,7 +528,7 @@ class CustomFramework(Framework):
         # look for return new ModelAndView()
         classCreators = self.processor.filter_on_path(searchNode, javalang.tree.ClassCreator, tree)
         for path, cc in classCreators:
-            if cc.type.name == "ModelAndView":
+            if cc.type.name == "ModelAndView" and hasattr(cc, 'arguments') and len(cc.arguments) > 0:
                 resolvedValues = self._resolve_values_in_dict({'jsp': cc.arguments[0]}, tree)
                 if 'jsp' in resolvedValues and resolvedValues['jsp'] and resolvedValues['jsp'].endswith(".jsp"):
                     templatePaths.add(resolvedValues['jsp'].lstrip('/'))
