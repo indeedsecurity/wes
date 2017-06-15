@@ -3,6 +3,7 @@ from flask import request, Response, Blueprint
 import re
 import sys
 import os
+from pprint import pprint
 
 # Add to wes to the sys path
 wesDir = os.path.realpath(os.path.join(__file__, "..", ".."))
@@ -28,6 +29,77 @@ db = load_db(databaseUri=databaseUri)
 s = db()
 
 api_v1 = Blueprint('api_v1', __name__)
+
+@api_v1.route('/options')
+def options():
+    """
+    Lists all options you can use to search the REST endpoint.
+    """
+
+    return flask.jsonify({
+        'filepath': {
+            'type': 'text',
+        },
+        'templates': {
+            'type': 'text',
+        },
+        'endpoint': {
+            'type': 'text',
+        },
+        'gitRepo': {
+            'type': 'select',
+            'options': [gitRepo[0] for gitRepo in s.query(Product.gitRepo).distinct()],
+        },
+        'productGroup': {
+            'type': 'select',
+            'options': [productGroup[0] for productGroup in s.query(ProductGroup.name).distinct()],
+        },
+        'product': {
+            'type': 'select',
+            'options': [product[0] for product in s.query(Product.name).distinct()],
+        },
+        'method': {
+            'type': 'select',
+            'options': [method[0] for method in s.query(Endpoint.method).distinct()],
+        },
+        'params': {
+            'type': 'text',
+        },
+        'plugin': {
+            'type': 'select',
+            'options': [plugin[0] for plugin in s.query(Endpoint.plugin).distinct()],
+        },
+        'onlyPrivate': {
+            'type': 'bool',
+            'options': ['1', '0'],
+            'default': '0',
+        },
+        'onlyRegex': {
+            'type': 'bool',
+            'options': ['1', '0'],
+            'default': '0',
+        },
+        'onlyNoParams': {
+            'type': 'bool',
+            'options': ['1', '0'],
+            'default': '0',
+        },
+        'excludePrivate': {
+            'type': 'bool',
+            'options': ['1', '0'],
+            'default': '1',
+        },
+        'excludeRegex': {
+            'type': 'bool',
+            'options': ['1', '0'],
+            'default': '1',
+        },
+        'excludeNoParams': {
+            'type': 'bool',
+            'options': ['1', '0'],
+            'default': '1',
+        },
+    })
 
 def create_query_from_qs(session):
     """
@@ -152,10 +224,11 @@ def products():
 
     results = {}
     for product in q.all():
-        results[product.name] = {
-            'productGroup': product.productGroup.name,
-            'gitRepo': product.gitRepo
-        }
+        if product.name:
+            results[product.name] = {
+                'productGroup': product.productGroup.name,
+                'gitRepo': product.gitRepo
+            }
     return flask.jsonify(results)
 
 @api_v1.route('/productGroups')
@@ -169,9 +242,10 @@ def productGroups():
 
     results = {}
     for productGroup in q.all():
-        results[productGroup.name] = {
-            'products': list(map(lambda x: x.name, productGroup.products))
-        }
+        if productGroup.name:
+            results[productGroup.name] = {
+                'products': list(map(lambda x: x.name, productGroup.products))
+            }
     return flask.jsonify(results)
 
 @api_v1.route('/parameters')

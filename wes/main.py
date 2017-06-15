@@ -336,7 +336,7 @@ def main(sysargs=[]):
         if hasattr(args, 'repo') and args.repo:
             projects.append({'baseUrl': args.baseUrl, 'gitRepo': args.repo})
         elif hasattr(args, 'folder') and args.folder:
-            projects.append({'baseUrl': args.baseUrl, 'folder': args.folder})
+            projects.append({'baseUrl': args.baseUrl, 'folder': os.path.realpath(args.folder)})
 
     for project in projects:
         projectRepoPath = None
@@ -350,7 +350,7 @@ def main(sysargs=[]):
             productGroup = projectRepoPath.split('/')[0]
 
         elif 'folder' in project:
-            gitConfigPath = os.path.join(project['folder'], '.git', 'config')
+            gitConfigPath = os.path.realpath(os.path.join(project['folder'], '.git', 'config'))
 
             try:
                 if os.path.isfile(gitConfigPath):
@@ -375,7 +375,7 @@ def main(sysargs=[]):
         print("{}Processing the {} project{}".format(10 * "-", projectRepoPath, 10 * "-"))
 
         if 'folder' in project:
-            projectFolder = project['folder']
+            projectFolder = os.path.realpath(project['folder'])
         elif 'gitRepo' in project:
             groupFolder = os.path.join(workingDir, productGroup)
             projectFolder = os.path.join(groupFolder, projectName)
