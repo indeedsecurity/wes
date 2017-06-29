@@ -5,6 +5,7 @@ import csv
 import shutil
 import codecs
 import datetime
+import json
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -15,10 +16,14 @@ wesDir = os.path.realpath(os.path.join(__file__, "..", ".."))
 sys.path.append(wesDir)
 from wes.framework_plugins.common import JavaProcessor, PythonProcessor
 from wes.database import (Base, Endpoint, Parameter, ProductGroup,
-                          Product, Template, Header, get_or_create)
+                          Product, Template, Header, get_or_create, delete_all_data)
 
 def load_db(databaseUri):
     engine = create_engine(databaseUri)
+
+    # Enable foreign keys for sqlite
+    if databaseUri.startswith('sqlite://'):
+        engine.execute('PRAGMA foreign_keys=ON')
 
     session = sessionmaker()
     session.configure(bind=engine)
@@ -295,6 +300,11 @@ def main(sysargs=[]):
     parser.add_argument('-s', '--database', action='store',
                         help='The database URI ex. sqlite:///test.sqlite',
                         default=None)
+    parser.add_argument('-o', '--output', action='store',
+                        help='The file to output endpoints in json format',
+                        default=None)
+    parser.add_argument('-c', '--clear', action='store_true',
+                        help='The flag to clear the database before running')
 
     args = parser.parse_args(sysargs)
 
@@ -310,6 +320,7 @@ def main(sysargs=[]):
     if not os.path.isdir(workingDir):
         os.makedirs(workingDir)
 
+    # Load the database
     databaseUri = None
     if args.database is not None:
         databaseUri = args.database
@@ -319,6 +330,12 @@ def main(sysargs=[]):
         databaseUri = 'sqlite:///' + os.path.join(workingDir, 'endpoints.sqlite')
 
     db = load_db(databaseUri=databaseUri)
+
+    # Clear the database, if requested
+    if args.clear:
+        s = db()
+        delete_all_data(s)
+        s.close()
 
     projects = []
     if args.repoCsv:
@@ -422,13 +439,19 @@ def main(sysargs=[]):
 
     # Query the db to count records
     s = db()
-    numEndpoints = s.query(Endpoint).count()
-    numParams = s.query(Parameter).filter(Parameter.endpoints is not None).count()
+    dbEndpoints = s.query(Endpoint)
+    dbParams = s.query(Parameter).filter(Parameter.endpoints is not None)
     s.close()
 
     # Tally up all of the endpoints in the database
-    print("Total endpoints in the database: {}".format(numEndpoints))
-    print("Total parameters in the database: {}".format(numParams))
+    print("Total endpoints in the database: {}".format(dbEndpoints.count()))
+    print("Total parameters in the database: {}".format(dbParams.count()))
+
+    # Output endpoints to JSON file
+    if args.output:
+        with open(args.output, 'w') as f:
+            results = list(map(lambda x: x.to_dict(), dbEndpoints))
+            json.dump({'endpoints': results}, f, indent=1, default=str)
 
 if __name__ == '__main__':
     main()
