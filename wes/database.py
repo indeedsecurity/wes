@@ -1,5 +1,5 @@
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Table, ForeignKeyConstraint
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Table
+from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.exc import OperationalError
 import datetime
@@ -15,6 +15,7 @@ def get_or_create(session, model, **kwargs):
         return instance
 
 def delete_all_data(session):
+    # Delete primary tables
     tables = [Endpoint, Parameter, ProductGroup, Product, Template, Header]
 
     for table in tables:
@@ -23,6 +24,13 @@ def delete_all_data(session):
             session.commit()
         except OperationalError:
             continue
+
+    # Delete association tables
+    tables = [EndpointParameter, EndpointTemplate, EndpointHeader]
+
+    for table in tables:
+        session.execute(table.delete())
+        session.commit()
 
     print("All of the database's tables have been cleared")
 
@@ -59,11 +67,14 @@ class Endpoint(Base):
     touchedDate = Column(DateTime, default=datetime.datetime.utcnow)
     productId = Column(Integer, ForeignKey('product.id'))
     parameters = relationship('Parameter', secondary=EndpointParameter,
-                              backref='endpoints', lazy=False)
+                              backref=backref('endpoints', cascade='all'),
+                              lazy=False)
     templates = relationship('Template', secondary=EndpointTemplate,
-                             backref='endpoints', lazy=False)
+                             backref=backref('endpoints', cascade='all'),
+                             lazy=False)
     headers = relationship('Header', secondary=EndpointHeader,
-                           backref='endpoints', lazy=False)
+                           backref=backref('endpoints', cascade='all'),
+                           lazy=False)
 
     def __repr__(self):
         return "<Endpoint {}>".format(self.baseUrl.rstrip('/') + '/' +
