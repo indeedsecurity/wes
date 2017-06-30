@@ -278,9 +278,7 @@ def regex_search_list(data, regex):
     return False
 
 
-def main(sysargs=[]):
-    if __name__ == '__main__':
-        sysargs = sys.argv[1:]
+def main(sysargs=sys.argv[1:]):
     # parse through command line arguments
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group(required=True)
