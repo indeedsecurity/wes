@@ -19,7 +19,6 @@ setup(
         'pytest-mock',
         'pytest-cov',
         'SQLAlchemy',
-        'psycopg2',
         'javalang==0.11.0'
     ],
     long_description=open('README.md').read(),
