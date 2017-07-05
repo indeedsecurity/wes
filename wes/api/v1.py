@@ -69,11 +69,6 @@ def options():
             'type': 'select',
             'options': [plugin[0] for plugin in s.query(Endpoint.plugin).distinct()],
         },
-        'onlyPrivate': {
-            'type': 'bool',
-            'options': ['1', '0'],
-            'default': '0',
-        },
         'onlyRegex': {
             'type': 'bool',
             'options': ['1', '0'],
@@ -83,11 +78,6 @@ def options():
             'type': 'bool',
             'options': ['1', '0'],
             'default': '0',
-        },
-        'excludePrivate': {
-            'type': 'bool',
-            'options': ['1', '0'],
-            'default': '1',
         },
         'excludeRegex': {
             'type': 'bool',
@@ -135,24 +125,16 @@ def create_query_from_qs(session):
         param = request.args.get('plugin')
         q = q.filter(Endpoint.plugin.ilike('%{}%'.format(param)))
 
-    onlyPrivate = request.args.get('onlyPrivate', None)
     onlyRegex = request.args.get('onlyRegex', None)
     onlyNoParams = request.args.get('onlyNoParams', None)
-    excludePrivate = request.args.get('excludePrivate', None)
     excludeRegex = request.args.get('excludeRegex', None)
     excludeNoParams = request.args.get('excludeNoParams', None)
-
-    if onlyPrivate and onlyPrivate == '1':
-        q = q.filter(Endpoint.private == True)
 
     if onlyRegex and onlyRegex == '1':
         q = q.filter(Endpoint.regex == True)
 
     if onlyNoParams and onlyNoParams == '1':
         q = q.filter(Endpoint.parameters == None)
-
-    if excludePrivate and excludePrivate == '1':
-        q = q.filter(Endpoint.private == False)
 
     if excludeRegex and excludeRegex == '1':
         q = q.filter(Endpoint.regex == False)
@@ -201,7 +183,6 @@ def endpoints():
         - method=String
         - params=String
         - plugin=String
-        - onlyPrivate=Bool(1 or 0)
         - onlyRegex=Bool(1 or 0)
         - onlyNoParams=Bool(1 or 0)
 
@@ -266,8 +247,8 @@ def parameters():
 @api_v1.route('/arachniYaml')
 def arachniYaml():
     """
-    An endpoint that returns YAML for the Arachni scanner. By default it filters out the endpoints that are private,
-    have regex, and have no params. You can override this with the includePrivate, includeRegex, and includeNoParams
+    An endpoint that returns YAML for the Arachni scanner. By default it filters out the endpoints that
+    have regex, and have no params. You can override this with the includeRegex, and includeNoParams
     query parameters. The following are supported query strings:
         - filepath=String
         - templates=String
@@ -278,10 +259,8 @@ def arachniYaml():
         - method=String
         - params=String
         - plugin=String
-        - onlyPrivate=Bool(1 or 0)
         - onlyRegex=Bool(1 or 0)
         - onlyNoParams=Bool(1 or 0)
-        - includePrivate=Bool(1 or 0)
         - includeRegex=Bool(1 or 0)
         - includeNoParams=Bool(1 or 0)
 
@@ -290,20 +269,10 @@ def arachniYaml():
 
     q = create_query_from_qs(s)
 
-    includePrivate = request.args.get('includePrivate', None)
     includeRegex = request.args.get('includeRegex', None)
     includeNoParams = request.args.get('includeNoParams', None)
-    onlyPrivate = request.args.get('onlyPrivate', None)
     onlyRegex = request.args.get('onlyRegex', None)
     onlyNoParams = request.args.get('onlyNoParams', None)
-
-    # Check for additional query strings
-    # Check if we should include private endpoints
-    if (includePrivate and includePrivate == '1') or (onlyPrivate and onlyPrivate == '1'):
-        q = q
-    else:
-        # remove private endpoints
-        q = q.filter(Endpoint.private == False)
 
     # Check if we should include endpoints with regex in them
     if (includeRegex and includeRegex == '1') or (onlyRegex and onlyRegex == '1'):

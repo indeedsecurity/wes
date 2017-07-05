@@ -62,7 +62,6 @@ class Endpoint(Base):
     filepath = Column(String)
     lineNumber = Column(Integer)
     regex = Column(Boolean)
-    private = Column(Boolean)
     createdDate = Column(DateTime, default=datetime.datetime.utcnow)
     touchedDate = Column(DateTime, default=datetime.datetime.utcnow)
     productId = Column(Integer, ForeignKey('product.id'))

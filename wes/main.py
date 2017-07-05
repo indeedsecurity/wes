@@ -102,13 +102,6 @@ def extend_endpoints_with_metadata(endpoints, gitRepo, productGroup, projectName
     return endpoints
 
 
-def is_endpoint_private(ep):
-    if 'private' in ep:
-        return True
-    else:
-        return False
-
-
 def is_endpoint_regex(ep):
     if '*' in ep or '[' in ep or ']' in ep or '(' in ep or ')' in ep:
         return True
@@ -198,7 +191,6 @@ def update_db_with_endpoints(endpoints, db):
         epRecord.plugin = endpointDict['plugin']
         epRecord.filepath = endpointDict['filepath']
         epRecord.regex = is_endpoint_regex(endpointDict['endpoint'])
-        epRecord.private = is_endpoint_private(endpointDict['endpoint'])
         epRecord.lineNumber = endpointDict['lineNumber'] if 'lineNumber' in endpointDict else None
 
         # Loop through adding object for each parameter in list
