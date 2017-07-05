@@ -30,7 +30,8 @@ class CustomFramework(Framework):
         :return: None
         """
         try:
-            self.elementTree = ET.parse(filepath)
+            parser = ET.XMLParser(resolve_entities=False)
+            self.elementTree = ET.parse(filepath, parser)
             self.rootElement = self.elementTree.getroot()
             if None in self.rootElement.nsmap:
                 self.namespace = self.rootElement.nsmap[None]
