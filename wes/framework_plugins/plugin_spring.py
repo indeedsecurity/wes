@@ -197,7 +197,7 @@ class CustomFramework(Framework):
         This method takes a path and attempts to find a @Controller annotation
         on the class level.
         :param path: The javalang path to the element
-        :return: Boolean (True if there's a @Controller on the class)
+        :return: Boolean (True if there's a @Controller or @RestController on the class)
         """
         parentClass = self._get_parent_class(path)
 
@@ -206,7 +206,7 @@ class CustomFramework(Framework):
         if hasattr(parentClass, 'annotations'):
             for anno in parentClass.annotations:
                 # Check if the parent class is a controller
-                if anno.name == "Controller":
+                if anno.name in ['Controller', 'RestController']:
                     return True
             # Return false if no controller anno found
             return False
