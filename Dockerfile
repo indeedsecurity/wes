@@ -7,7 +7,8 @@ RUN apk add --no-cache python3-dev python3 supervisor wget curl bash libxml2 \
 
 # Set timezone. This is required for correct timestamps
 RUN apk add --update --no-cache tzdata ca-certificates && update-ca-certificates
-ENV TZ=America/Chicago
+ARG TZ=UTC
+ENV TZ ${TZ}
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Add wes user
@@ -36,7 +37,7 @@ COPY entrypoint.sh /
 
 # Set environment variable so python output is unbuffered for supervisord
 ENV PYTHONUNBUFFERED 1
-RUN touch /tmp/supervisor.sock && chmod 777 /tmp/supervisor.sock
+RUN touch /tmp/supervisor.sock && chmod 755 /tmp/supervisor.sock
 
 # Add cron job
 COPY cron /usr/src/app
