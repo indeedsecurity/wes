@@ -675,7 +675,7 @@ class JavaProcessor:
 
         for srcFile in files:
             with codecs.open(srcFile, 'r', 'utf-8', 'ignore') as f:
-                for line in f:
+                for line in f.readlines():
                     if line.startswith('package '):
                         # split on space and grab second element, replace . with /, and remove ;
                         # from: "package com.indeed.security.wes.west.servlets.JS001;"

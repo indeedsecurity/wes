@@ -47,10 +47,10 @@ def test_find_endpoints(plugin):
         assert 'params' in ep
         assert type(ep['templates']) is set
         assert type(ep['endpoints']) is set
-        assert type(ep['methods']) is set
+        assert type(ep['methods']) is list
         assert type(ep['templates']) is set
         assert type(ep['filepath']) is str
-        assert type(ep['params']) is set
+        assert type(ep['params']) is list
 
 def test_find_endpoints_bad_web_xml(plugin, mocker):
     mocker.patch('wes.framework_plugins.plugin_javaservlet.CustomFramework._find_web_xml', return_value=None)
@@ -192,24 +192,13 @@ def test_is_spring_servlet_dipatcher_or_external_third(plugin, mocker):
     assert plugin._is_spring_servlet_dipatcher_or_external('') == True
 
 def test_find_class_file_path(plugin, mocker):
+    mocker.patch('os.path.isfile', return_value=True)
     mocker.patch(
-        'wes.framework_plugins.plugin_javaservlet.CustomFramework._find_code_base_dir',
+        'wes.framework_plugins.common.JavaProcessor.find_code_base_dir',
         return_value='/myCodeBaseDir/'
     )
 
     assert plugin._find_class_file_path('com.indeed.security.wes.MYTESTCLASS') == '/myCodeBaseDir/com/indeed/security/wes/MYTESTCLASS.java'
-
-def test_find_code_base_dir(plugin, mocker):
-    mocker.patch('glob.glob', return_value=['java/src/main/java/com/indeed/security/wes/MyClass.java'])
-    mocker.patch('codecs.open', mocker.mock_open(read_data="package com.indeed.security.wes;"))
-
-    assert plugin._find_code_base_dir() == 'java/src/main/java/'
-
-def test_find_code_base_dir_bad(plugin, mocker):
-    mocker.patch('glob.glob', return_value=['java/src/main/java/com/indeed/security/wes/MyClass.java'])
-    mocker.patch('codecs.open', mocker.mock_open(read_data="Just a random string"))
-
-    assert plugin._find_code_base_dir() == None
 
 def test_find_request_get_param(plugin):
     plugin.processor.javaCompilationUnits['TestFile'] = javalang.parse.parse(
@@ -231,12 +220,13 @@ public class JSTEST extends HttpServlet {
 
     endpoint = {
         'filepath': 'TestFile',
-        'params': set()
+        'params': []
     }
 
     assert plugin._find_request_get_param(endpoint) == {
         'filepath': 'TestFile',
-        'params': set(['a', 'b'])
+        'params': [{'filepath': 'TestFile', 'lineNumber': 11, 'name': 'a'},
+                   {'filepath': 'TestFile', 'lineNumber': 12, 'name': 'b'}]
     }
 
 def test_find_request_get_param_member(plugin):
@@ -263,12 +253,12 @@ public class JSTEST extends HttpServlet {
 
     endpoint = {
         'filepath': 'TestFile',
-        'params': set()
+        'params': []
     }
 
     assert plugin._find_request_get_param(endpoint) == {
         'filepath': 'TestFile',
-        'params': set(['a'])
+        'params': [{'filepath': 'TestFile', 'lineNumber': 12, 'name': 'a'}]
     }
 
 def test_find_referenced_jsps(plugin):
@@ -355,10 +345,15 @@ def test_find_jsp_params(plugin, mocker):
     endpoint = {
         'templates': ['java/src/main/webapp/WEB-INF/jsp/servlets/test.jsp',
                       'java/src/main/webapp/WEB-INF/jsp/servlets/test1.jsp'],
-        'params': set()
+        'params': []
     }
 
-    assert set(['1a', '2b', '3c']) == plugin._find_jsp_params(endpoint)['params']
+    assert [{'filepath': 'WEB-INF/jsp/servlets/test.jsp', 'name': '1a'},
+            {'filepath': 'WEB-INF/jsp/servlets/test.jsp', 'name': '2b'},
+            {'filepath': 'WEB-INF/jsp/servlets/test.jsp', 'name': '3c'},
+            {'filepath': 'WEB-INF/jsp/servlets/test1.jsp', 'name': '1a'},
+            {'filepath': 'WEB-INF/jsp/servlets/test1.jsp', 'name': '2b'},
+            {'filepath': 'WEB-INF/jsp/servlets/test1.jsp', 'name': '3c'}] == plugin._find_jsp_params(endpoint)['params']
 
 def test_find_methods_for_endpoint(plugin):
     plugin.processor.javaCompilationUnits['TestFile5'] = javalang.parse.parse(

@@ -42,7 +42,7 @@ def test_find_public_jsps(plugin):
         'endpoints': set(['index.jsp']),
         'filepath': 'java/src/main/webapp/index.jsp',
         'methods': set(['GET']),
-        'params': set(),
+        'params': [],
         'templates': set(['java/src/main/webapp/index.jsp'])
     } in public_jsps
 
