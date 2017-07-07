@@ -179,7 +179,7 @@ class CustomFramework(Framework):
         """
         # Parse the XML file
         self._load_xml(webXmlLocation)
-        if self.namespace is not None:
+        if self.namespace is not None and self.rootElement is not None:
             # loop through all the servlet-mappings
             if None in self.rootElement.nsmap:
                 searchString = ".//{{{}}}servlet-mapping".format(self.namespace)

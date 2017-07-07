@@ -282,3 +282,15 @@ def test_find_java_web_context_not_found(processor, mocker):
     mocked_glob = mocker.patch('glob.glob', return_value=['test1', 'test2'])
     webContextDir = processor._find_java_web_context()
     assert webContextDir == "web/"
+
+def test_find_code_base_dir(processor, mocker):
+    mocker.patch('glob.glob', return_value=['java/src/main/java/com/indeed/security/wes/MyClass.java'])
+    mocker.patch('codecs.open', mocker.mock_open(read_data="package com.indeed.security.wes;"))
+
+    assert processor.find_code_base_dir() == 'java/src/main/java/'
+
+def test_find_code_base_dir_bad(processor, mocker):
+    mocker.patch('glob.glob', return_value=['java/src/main/java/com/indeed/security/wes/MyClass.java'])
+    mocker.patch('codecs.open', mocker.mock_open(read_data="Just a random string"))
+
+    assert processor.find_code_base_dir() == None

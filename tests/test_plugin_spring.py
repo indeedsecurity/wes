@@ -69,7 +69,7 @@ public class SMVC001 {
     assert endpointDict['endpoints'] == set(['/SMVC001'])
     assert endpointDict['filepath'] == 'TestFile1'
     assert endpointDict['methods'] == set(['GET'])
-    assert endpointDict['params'] == set()
+    assert endpointDict['params'] == []
     assert str(endpointDict['javaPath']) == '(CompilationUnit, [ClassDeclaration], ClassDeclaration, [MethodDeclaration], MethodDeclaration)'
 
 def test_find_request_mappings_class(plugin):
@@ -217,7 +217,12 @@ public class SMVC001 {
 
     md = list(tree.filter(javalang.tree.MethodDeclaration))[0]
 
-    assert plugin._get_parent_request_mapping(md[0]) == {'endpoints': {'/test'}, 'methods': {'GET'}, 'params': set()}
+    assert plugin._get_parent_request_mapping(md[0]) == {
+        'endpoints': {'/test'},
+        'methods': {'GET'},
+        'params': [],
+        'headers': set()
+    }
 
 def test_parse_req_map_annotation(plugin, mocker):
     mocker.patch('wes.framework_plugins.plugin_spring.CustomFramework._parse_anno_args_to_dict')
@@ -237,7 +242,8 @@ def test_parse_req_map_annotation(plugin, mocker):
     assert plugin._parse_req_map_annotation(fakeAnnotation, '') == {
         'endpoints': {'/test'},
         'methods': {'GET'},
-        'params': {'myParam'}
+        'params': ['myParam'],
+        'headers': set()
     }
 
 def test_parse_req_map_annotation_lists(plugin, mocker):
@@ -258,7 +264,8 @@ def test_parse_req_map_annotation_lists(plugin, mocker):
     assert plugin._parse_req_map_annotation(fakeAnnotation, '') == {
         'endpoints': {'/test', '/test2'},
         'methods': {'GET', 'POST'},
-        'params': {'myParam', 'test'}
+        'params': ['myParam', 'test'],
+        'headers': set()
     }
 
 def test_parse_anno_args_to_dict(plugin):
@@ -344,23 +351,27 @@ def test_combine_endpoint_sets(plugin):
         'params': {'testParam3', 'testParam4'}
     }
 
-    assert plugin._combine_endpoint_sets(parent1, child1) == {
-        'endpoints': {'/test1/test3', '/test1/test4', '/test2/test3', '/test2/test4'},
-        'methods': {'GET'},
-        'params': {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
-    }
+    firstTest = plugin._combine_endpoint_sets(parent1, child1)
+    assert ('endpoints', {'/test1/test3', '/test1/test4', '/test2/test3', '/test2/test4'}) in firstTest.items()
+    assert ('methods', {'GET'}) in firstTest.items()
+    assert ('headers', set()) in firstTest.items()
+    assert ('lineNumber', None) in firstTest.items()
+    assert set(firstTest['params']) == {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
 
-    assert plugin._combine_endpoint_sets(parent1, child2) == {
-        'endpoints': {'/test1', '/test2'},
-        'methods': {'GET'},
-        'params': {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
-    }
+    secondTest = plugin._combine_endpoint_sets(parent1, child2)
+    assert ('endpoints', {'/test1', '/test2'}) in secondTest.items()
+    assert ('methods', {'GET'}) in secondTest.items()
+    assert ('headers', set()) in secondTest.items()
+    assert ('lineNumber', None) in secondTest.items()
+    assert set(secondTest['params']) == {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
 
-    assert plugin._combine_endpoint_sets(parent2, child1) == {
-        'endpoints': {'/test3', '/test4'},
-        'methods': {'GET'},
-        'params': {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
-    }
+    thirdTest = plugin._combine_endpoint_sets(parent2, child1)
+    assert ('endpoints', {'/test3', '/test4'}) in thirdTest.items()
+    assert ('methods', {'GET'}) in thirdTest.items()
+    assert ('headers', set()) in thirdTest.items()
+    assert ('lineNumber', None) in thirdTest.items()
+    assert set(thirdTest['params']) == {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
+
 
 def test_find_parameters(plugin, mocker):
     mocker.patch('wes.framework_plugins.plugin_spring.CustomFramework._find_request_param')
@@ -392,10 +403,11 @@ public class SMVC001 {
 
     endpoint = {
         'javaPath': anno[0],
-        'params': set()
+        'params': [],
+        'filepath': 'TestFile1'
     }
 
-    assert plugin._find_request_param(endpoint)['params'] == {'a'}
+    assert plugin._find_request_param(endpoint)['params'] == [{'name': 'a', 'filepath': 'TestFile1', 'lineNumber': 10}]
 
 def test_parse_req_param_anno(plugin, mocker):
     mocker.patch('wes.framework_plugins.plugin_spring.CustomFramework._parse_anno_args_to_dict')
@@ -433,10 +445,11 @@ public class SMVC001 {
 
     endpoint = {
         'javaPath': anno[0],
-        'params': set()
+        'params': [],
+        'filepath': 'TestFile1'
     }
 
-    assert plugin._find_request_get_param(endpoint)['params'] == {'b'}
+    assert plugin._find_request_get_param(endpoint)['params'] == [{'name': 'b', 'filepath': 'TestFile1', 'lineNumber': 11}]
 
 def test_find_referenced_jsps(plugin):
     tree = javalang.parse.parse(
@@ -490,11 +503,11 @@ def test_find_params_in_jsps(plugin, mocker):
                  return_value=['c'])
 
     endpoint = {
-        'templates': {plugin.processor.webContextDir + '/myTemplate'},
-        'params': set()
+        'templates': {plugin.processor.webContextDir + 'myTemplate'},
+        'params': []
     }
 
-    assert plugin._find_params_in_jsps(endpoint)['params'] == {'c'}
+    assert plugin._find_params_in_jsps(endpoint)['params'] == [{'name': 'c', 'filepath': 'java/src/main/webapp/myTemplate'}]
 
 def test_convert_endpoint_to_python_regex(plugin):
     assert plugin._convert_endpoint_to_python_regex('mypath/*') == 'mypath/[^/]*'
