@@ -21,14 +21,20 @@ app.register_blueprint(api_v1, url_prefix='/api/v1')
 #     # render the data table page
 #     return render_template('index.html')
 
-if __name__ == '__main__':
+def console():
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--port', action='store',
                         help='The port to run the server on.',
                         default=5000)
+    parser.add_argument('-h', '--host', action='store',
+                        help='The interface to run the server on.',
+                        default='127.0.0.1')
     args = parser.parse_args()
 
     """
     Runs the flask app
     """
-    app.run(host='0.0.0.0', port=args.port)
+    app.run(host=args.host, port=args.port)
+
+if __name__ == '__main__':
+    console()
