@@ -26,7 +26,7 @@ def console():
     parser.add_argument('-p', '--port', action='store',
                         help='The port to run the server on.',
                         default=5000)
-    parser.add_argument('-h', '--host', action='store',
+    parser.add_argument('-i', '--host', action='store',
                         help='The interface to run the server on.',
                         default='127.0.0.1')
     args = parser.parse_args()
