@@ -1,5 +1,6 @@
 import glob
 import codecs
+import logging
 import _ast3
 from typed_ast import ast3
 # Add to wes to the sys path
@@ -9,6 +10,9 @@ from copy import copy
 wesDir = os.path.realpath(os.path.join(__file__, "..", ".."))
 sys.path.append(wesDir)
 from wes.framework_plugins.common import Framework
+
+# configure logging
+logger = logging.getLogger("Django")
 
 
 class CustomFramework(Framework):
@@ -123,7 +127,7 @@ class CustomFramework(Framework):
                     self.tempRecursedEndpoints.append(endpoint)
 
             else:
-                print("It looks like there was a faulty url() call")
+                logger.warning("It looks like there was a faulty url() call")
 
     def _find_project_root(self):
         # locate where manage.py is located in the project and assume that's the root of the project's code
@@ -180,7 +184,7 @@ class CustomFramework(Framework):
         try:
             root = self.processor.pythonFileAsts[filepath]
         except KeyError as e:
-            print("Couldn't find this file. Possibly an external library: {}".format(e))
+            logger.warning("Couldn't find this file. Possibly an external library: %s", e)
             return []
 
         # Find all the method Calls
@@ -360,7 +364,7 @@ class CustomFramework(Framework):
                     if possiblePath in self.processor.pythonFileAsts:
                         return possiblePath
             else:
-                print("This is most likely a view from an external library: {}".format(name))
+                logger.warning("This is most likely a view from an external library: %s", name)
                 return None
         else:
             # This is an asterisks import so we'll have to search the module we find
@@ -386,7 +390,7 @@ class CustomFramework(Framework):
                                 return possiblePath
                         return None
             else:
-                print("This is most likely an import from an external library: {}".format(importObject.module))
+                logger.warning("This is most likely an import from an external library: %s", importObject.module)
                 return None
 
     def _find_parameters(self, endpoints):

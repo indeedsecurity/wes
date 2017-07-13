@@ -6,6 +6,7 @@ import shutil
 import codecs
 import datetime
 import json
+import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -17,6 +18,11 @@ sys.path.append(wesDir)
 from wes.framework_plugins.common import JavaProcessor, PythonProcessor
 from wes.database import (Base, Endpoint, Parameter, ProductGroup,
                           Product, Template, Header, get_or_create, delete_all_data)
+
+# configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s : %(levelname)s : %(message)s", datefmt="%H:%M:%S")
+logger = logging.getLogger("Main")
+
 
 def load_db(databaseUri):
     engine = create_engine(databaseUri)
@@ -49,7 +55,7 @@ def clone_update_repo(projectFolder, gitRepo):
     if os.path.isdir(projectFolder):
         try:
             # If so pull changes from the repo
-            print("Pulling project changes...")
+            logger.info("Pulling project changes...")
             r = Repo(projectFolder)
             o = r.remotes.origin
             o.pull()
@@ -58,7 +64,7 @@ def clone_update_repo(projectFolder, gitRepo):
             clone_update_repo(projectFolder, gitRepo)
     else:
         # Project doesn't exist in the working dir yet, let's clone it
-        print("Cloning the project...")
+        logger.info("Cloning the project...")
         os.makedirs(projectFolder)
         r = Repo.clone_from(gitRepo, projectFolder)
 
@@ -230,8 +236,7 @@ def update_db_with_endpoints(endpoints, db):
     # Close our session
     s.close()
     # Print Stats
-    print("++ Found {} endpoints with {} new endpoints in this project."
-          .format(numRecords, numNewRecords))
+    logger.info("Found %s endpoints with %s new endpoints in this project.", numRecords, numNewRecords)
 
 
 def remove_stale_db_records(db):
@@ -251,7 +256,7 @@ def remove_stale_db_records(db):
     s.close()
 
     # Print Stats
-    print("-- Removed {} stale endpoints.".format(staleRecords.count()))
+    logger.info("Removed %s stale endpoints.", staleRecords.count())
 
 
 def regex_search_list(data, regex):
@@ -379,7 +384,7 @@ def main(sysargs=sys.argv[1:]):
                 projectName = None
                 productGroup = None
 
-        print("{}Processing the {} project{}".format(10 * "-", projectRepoPath, 10 * "-"))
+        logger.info("----------Processing the %s project----------", projectRepoPath)
 
         if 'folder' in project:
             projectFolder = os.path.realpath(project['folder'])
@@ -399,7 +404,7 @@ def main(sysargs=sys.argv[1:]):
             'java': JavaProcessor(projectFolder),
             'python': PythonProcessor(projectFolder)
         }
-        print('Preprocessing the project...')
+        logger.info('Preprocessing the project...')
         for name, processor in processors.items():
             processor.load_project()
 
@@ -410,7 +415,7 @@ def main(sysargs=sys.argv[1:]):
             # If the project is identified by the plugin try to find the endpoints
             # for the project with the find_endpoints() method
             if pluginObj.identify():
-                print("** Identified the project as a {} project.".format(plugin.__name__[29:]))
+                logger.info("Identified the project as a %s project.", plugin.__name__[29:])
 
                 endpoints = pluginObj.find_endpoints()
 
@@ -434,8 +439,8 @@ def main(sysargs=sys.argv[1:]):
     s.close()
 
     # Tally up all of the endpoints in the database
-    print("Total endpoints in the database: {}".format(dbEndpoints.count()))
-    print("Total parameters in the database: {}".format(dbParams.count()))
+    logger.info("Total of %s endpoints in the database.", dbEndpoints.count())
+    logger.info("Total of %s parameters in the database.", dbParams.count())
 
     # Output endpoints to JSON file
     if args.output:

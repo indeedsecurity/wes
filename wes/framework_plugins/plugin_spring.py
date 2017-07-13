@@ -2,6 +2,7 @@ import glob
 import javalang
 import codecs
 import re
+import logging
 # Add to wes to the sys path
 import sys
 import os
@@ -14,6 +15,9 @@ try:
 
 except ImportError:  # pragma: no cover
     import xml.etree.ElementTree as ET
+
+# configure logging
+logger = logging.getLogger("Spring")
 
 
 class CustomFramework(Framework):
@@ -38,7 +42,7 @@ class CustomFramework(Framework):
             else:
                 self.namespace = None
         except Exception as e:
-            print("There was a problem parsing the xml", e)
+            logger.warning("There was a problem parsing the xml: %s", e)
             self.elementTree = None
             self.rootElement = None
 
@@ -136,7 +140,6 @@ class CustomFramework(Framework):
         for i in range(len(self.endpoints)):
             self.endpoints[i] = self._find_parameters(self.endpoints[i])
 
-        # pprint(self.endpoints)
         return self._clean_endpoints(self.endpoints)
 
     def _find_request_mappings(self, filepath):
