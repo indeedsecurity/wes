@@ -3,6 +3,11 @@ from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.exc import OperationalError
 import datetime
+import logging
+
+# configure logging
+logger = logging.getLogger("Database")
+
 
 def get_or_create(session, model, **kwargs):
     instance = session.query(model).filter_by(**kwargs).first()
@@ -13,6 +18,7 @@ def get_or_create(session, model, **kwargs):
         session.add(instance)
         session.commit()
         return instance
+
 
 def delete_all_data(session):
     # Delete primary tables
@@ -32,7 +38,7 @@ def delete_all_data(session):
         session.execute(table.delete())
         session.commit()
 
-    print("All of the database's tables have been cleared")
+    logger.info("All of the database's tables have been cleared.")
 
 Base = declarative_base()
 

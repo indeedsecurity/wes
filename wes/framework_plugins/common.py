@@ -7,6 +7,7 @@ import re
 from typed_ast import ast27, ast3, conversions
 import _ast3
 import pickle
+import logging
 
 JAVA_PRIMITIVES = ["boolean", "byte", "char", "double", "int", "float", "long", "short"]
 
@@ -19,6 +20,9 @@ JAVA_DOT_LANG_IMPORTS = [
     "java.lang.StrictMath", "java.lang.String", "java.lang.StringBuffer", "java.lang.StringBuilder", "java.lang.System",
     "java.lang.Thread", "java.lang.ThreadGroup", "java.lang.ThreadLocal", "java.lang.Throwable", "java.lang.Void"
 ]
+
+# configure logging
+logger = logging.getLogger("Common")
 
 
 class Framework:
@@ -63,7 +67,6 @@ class JavaProcessor:
 
         # Loop through the files looking for endpoints
         for f in projectFiles:
-            # print("FILE: {}".format(f))
             with codecs.open(f, 'r', 'utf-8', 'ignore') as fh:
                 code = fh.read()
                 # Used javalang library to parse the code for easier analysis
@@ -71,7 +74,7 @@ class JavaProcessor:
                     tree = javalang.parse.parse(code)
                     self.javaCompilationUnits[self.strip_work_dir(f)] = tree
                 except javalang.parser.JavaSyntaxError as e:  # pragma: no cover
-                    print("There was an error parsing this file with javalang: {}".format(self.strip_work_dir(f)), e)
+                    logger.warning("There was an error parsing '%s' with javalang: %s", self.strip_work_dir(f), e)
 
         # Process the Literals and variables
         # These two methods are broken up so that we can gather all the Literals first then attempt to resolve some
@@ -94,8 +97,6 @@ class JavaProcessor:
                     self.methodInvocationLookupTable[k] += v
                 else:
                     self.methodInvocationLookupTable[k] = v
-
-        print()
 
     def strip_work_dir(self, path):
         """
@@ -189,7 +190,6 @@ class JavaProcessor:
                     return left.strip('"\'') + right.strip('"\'')
 
             # We're only accounting for string concatenation for now
-            # print("I got the following type of operation: {} {} {}".format(type(operandl), operator, type(operandr)))
 
     def _preprocess_java_literals(self, tree):
         """
@@ -409,7 +409,7 @@ class JavaProcessor:
             return matches
 
         except FileNotFoundError as e:
-            print("Found a incorrectly referenced JSP", e)
+            logger.warning("Found a incorrectly referenced JSP of '%s'", jspPath)
             return []
 
     def resolve_member_reference(self, tree, member, qualifier=None):
@@ -744,12 +744,11 @@ class PythonProcessor:
 
         # Loop through the files looking for endpoints
         for f in projectFiles:
-            # print("FILE: {}".format(f))
             try:
                 with codecs.open(f, 'r', 'utf-8', 'ignore') as fh:
                     code = fh.read()
             except UnicodeDecodeError as e:
-                print(e)
+                logger.warning("There was an error decoding '%s': %s", self.strip_work_dir(f), e)
                 continue
             # Use typed_ast library to parse the code for easier analysis
             try:
@@ -773,7 +772,7 @@ class PythonProcessor:
             # convert ast to v3
             return conversions.py2to3(tree)
         except SyntaxError as e:
-            print("There was a problem parsing the syntax in this code.", e)
+            logger.warning("There was a problem parsing the syntax in this code: %s", e)
 
     def filter_ast(self, startingNode, objectType):
         """
