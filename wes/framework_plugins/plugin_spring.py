@@ -120,6 +120,8 @@ class CustomFramework(Framework):
                 return True
             elif 'org.springframework.boot.SpringApplication' in contents:
                 return True
+            elif 'org.springframework.context.annotation.ComponentScan' in contents and '@ComponentScan' in contents:
+                return True
 
         return False
 
