@@ -20,7 +20,8 @@ except ImportError:  # pragma: no cover
 logger = logging.getLogger("Spring")
 
 SPRING_PARAMETER_ANNOTATIONS = ['PathVariable', 'MatrixVariable', 'RequestParam', 'RequestHeader',
-                                'RequestBody', 'RequestPart', 'SessionAttribute', 'RequestAttribute']
+                                'RequestBody', 'RequestPart', 'SessionAttribute', 'RequestAttribute',
+                                'CookieValue', 'ModelAttribute']
 
 
 class CustomFramework(Framework):
