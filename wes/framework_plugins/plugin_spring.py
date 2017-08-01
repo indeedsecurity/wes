@@ -478,6 +478,9 @@ class CustomFramework(Framework):
                         }
 
                         endpoint['params'].append(paramDict)
+            elif annoNames and 'PathVariable' in annoNames:
+                # Ignore path variables
+                continue
             elif param.type.name == 'String':
                 paramDict = {
                     'name': param.name,
