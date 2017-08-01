@@ -19,10 +19,6 @@ except ImportError:  # pragma: no cover
 # configure logging
 logger = logging.getLogger("Spring")
 
-SPRING_PARAMETER_ANNOTATIONS = ['PathVariable', 'MatrixVariable', 'RequestParam', 'RequestHeader',
-                                'RequestBody', 'RequestPart', 'SessionAttribute', 'RequestAttribute',
-                                'CookieValue', 'ModelAttribute']
-
 
 class CustomFramework(Framework):
     def __init__(self, workingDir, processors):
@@ -465,8 +461,8 @@ class CustomFramework(Framework):
 
         # Check parameters of method for @RequestParam or String
         for param in method.parameters:
-            # Filter by spring parameter annotations
-            annoNames = [a.name for a in param.annotations if a.name in SPRING_PARAMETER_ANNOTATIONS]
+            # Filter by spring annotations
+            annoNames = self._filter_spring_annos(param.annotations, tree)
 
             if annoNames and 'RequestParam' in annoNames:
                 for anno in param.annotations:
@@ -645,3 +641,20 @@ class CustomFramework(Framework):
             if 'endpoints' in cleanEndpoint:
                 cleanEndpoints.append(cleanEndpoint)
         return cleanEndpoints
+
+    def _filter_spring_annos(self, annotations, tree):
+        """
+        Filters out non-Spring annotations from the list of annotations.
+        :param annotations: List of annotations
+        :param tree: Class tree
+        :return: List of Spring annotations
+        """
+        springNames = []
+
+        for anno in annotations:
+            for imp in tree.imports:
+                if imp.path.startswith('org.springframework.') and imp.path.endswith('.' + anno.name):
+                    springNames.append(anno.name)
+                    break
+
+        return springNames
