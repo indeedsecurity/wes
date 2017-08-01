@@ -459,9 +459,11 @@ class CustomFramework(Framework):
         tree = self.processor.get_compilation_unit(endpoint['javaPath'])
         method = self.processor.get_parent_declaration(endpoint['javaPath'])
 
-        # Check parameters of method for @RequestParam
+        # Check parameters of method for @RequestParam or String
         for param in method.parameters:
-            if hasattr(param, 'annotations'):
+            annoNames = list(map(lambda x: x.name, param.annotations))
+
+            if annoNames and 'RequestParam' in annoNames:
                 for anno in param.annotations:
                     if anno.name == 'RequestParam':
                         # Found a RequestParam now let's parse it
@@ -476,6 +478,14 @@ class CustomFramework(Framework):
                         }
 
                         endpoint['params'].append(paramDict)
+            elif param.type.name == 'String':
+                paramDict = {
+                    'name': param.name,
+                    'filepath': endpoint['filepath'],
+                    'lineNumber': param.position[0]
+                }
+
+                endpoint['params'].append(paramDict)
 
         return endpoint
 
