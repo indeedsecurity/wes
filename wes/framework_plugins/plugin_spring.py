@@ -462,9 +462,9 @@ class CustomFramework(Framework):
         # Check parameters of method for @RequestParam or String
         for param in method.parameters:
             # Filter by spring annotations
-            annoNames = self._filter_spring_annos(param.annotations, tree)
+            springAnnos = [x.name for x in param.annotations if self._is_spring_object(x.name, tree)]
 
-            if annoNames and 'RequestParam' in annoNames:
+            if springAnnos and 'RequestParam' in springAnnos:
                 for anno in param.annotations:
                     if anno.name == 'RequestParam':
                         # Found a RequestParam now let's parse it
@@ -479,7 +479,7 @@ class CustomFramework(Framework):
                         }
 
                         endpoint['params'].append(paramDict)
-            elif not annoNames and param.type.name == 'String':
+            elif not springAnnos and param.type.name == 'String':
                 paramDict = {
                     'name': param.name,
                     'filepath': endpoint['filepath'],
@@ -642,19 +642,24 @@ class CustomFramework(Framework):
                 cleanEndpoints.append(cleanEndpoint)
         return cleanEndpoints
 
-    def _filter_spring_annos(self, annotations, tree):
+    def _is_spring_object(self, name, tree):
         """
-        Filters out non-Spring annotations from the list of annotations.
-        :param annotations: List of annotations
+        Check if it is a Spring object according to import resolution. Spring objects start with org.springframework.
+        :param name: Name of object
         :param tree: Class tree
-        :return: List of Spring annotations
+        :return: True if Spring, false otherwise
         """
-        springNames = []
+        parent = '.' + name.split('.')[0]
 
-        for anno in annotations:
-            for imp in tree.imports:
-                if imp.path.startswith('org.springframework.') and imp.path.endswith('.' + anno.name):
-                    springNames.append(anno.name)
-                    break
+        # Find import statement
+        for imp in tree.imports:
+            if imp.path.endswith(parent):
 
-        return springNames
+                # Check Spring
+                if imp.path.startswith('org.springframework.'):
+                    return True
+                else:
+                    return False
+
+        # Default
+        return False
