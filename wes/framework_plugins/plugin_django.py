@@ -351,16 +351,29 @@ class CustomFramework(Framework):
         """
         # First we have to check if we're dealing with a * import
         if importObject.names[0] != '*':
-            if isinstance(importObject, _ast3.ImportFrom) and importObject.level > 0:
-                possiblePath = "/".join(locationFound.split('/')[:-importObject.level]) + "/"
-                if importObject.module:
-                    possiblePath += importObject.module.replace('.', '/') + "/"
-                possiblePath += name + ".py"
+            if isinstance(importObject, _ast3.Import):
+                # Root path is current directory
+                rootPath = locationFound[:locationFound.rfind('/') + 1]
+                possiblePath = rootPath + name.replace('.', '/') + '.py'
+                if possiblePath in self.processor.pythonFileAsts:
+                    return possiblePath
+            elif isinstance(importObject, _ast3.ImportFrom):
+                # Root path is module directory or current directory depending on level
+                modulePath = importObject.module.replace('.', '/') + '/' if importObject.module else ''
+                if importObject.level == 0 and modulePath and locationFound.find(modulePath) != -1:
+                    rootPath = locationFound[:locationFound.find(modulePath)]
+                elif importObject.level > 0:
+                    rootPath = locationFound[:locationFound.rfind('/') + 1]
+                else:
+                    logger.warning("This is most likely a view from an external library: %s", name)
+                    return None
+
+                # Try module/name.py, then module.py
+                possiblePath = rootPath + modulePath + name + '.py'
                 if possiblePath in self.processor.pythonFileAsts:
                     return possiblePath
                 else:
-                    possiblePath = "/".join(locationFound.split('/')[:-importObject.level]) + "/"
-                    possiblePath += importObject.module.replace('.', '/') + ".py"
+                    possiblePath = rootPath + modulePath.rstrip('/') + '.py'
                     if possiblePath in self.processor.pythonFileAsts:
                         return possiblePath
             else:
