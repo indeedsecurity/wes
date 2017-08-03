@@ -351,7 +351,7 @@ class CustomFramework(Framework):
         """
         # First we have to check if we're dealing with a * import
         if importObject.names[0] != '*':
-            if importObject.level > 0:
+            if isinstance(importObject, _ast3.ImportFrom) and importObject.level > 0:
                 possiblePath = "/".join(locationFound.split('/')[:-importObject.level]) + "/"
                 if importObject.module:
                     possiblePath += importObject.module.replace('.', '/') + "/"
@@ -368,7 +368,7 @@ class CustomFramework(Framework):
                 return None
         else:
             # This is an asterisks import so we'll have to search the module we find
-            if importObject.level > 0:
+            if isinstance(importObject, _ast3.ImportFrom) and importObject.level > 0:
                 possiblePath = "/".join(locationFound.split('/')[:-importObject.level]) + "/"
                 possiblePath += importObject.module.replace('.', '/') + "/"
                 possiblePath += name + ".py"
