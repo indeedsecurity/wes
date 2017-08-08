@@ -516,9 +516,10 @@ class CustomFramework(Framework):
                                 # This processes the following:
                                 # <reqName>.<method_in_caps>.get("paramName", None)
                                 args = self.processor.parse_python_method_args(call, ['key', 'default'])
-                                if type(args['key']) is str:
+                                if isinstance(args['key'], (bytes, str)):
+                                    value = args['key'].decode('utf-8') if type(args['key']) is bytes else args['key']
                                     paramDict = {
-                                        'name': args['key'],
+                                        'name': value,
                                         'filepath': endpoints[i]['viewFilepath'],
                                         'lineNumber': call.lineno
                                     }
@@ -530,9 +531,10 @@ class CustomFramework(Framework):
                                 # This processes the following:
                                 # self.request.<method_in_caps>.get("paramName", None)
                                 args = self.processor.parse_python_method_args(call, ['key', 'default'])
-                                if type(args['key']) is str:
+                                if isinstance(args['key'], (bytes, str)):
+                                    value = args['key'].decode('utf-8') if type(args['key']) is bytes else args['key']
                                     paramDict = {
-                                        'name': args['key'],
+                                        'name': value,
                                         'filepath': endpoints[i]['viewFilepath'],
                                         'lineNumber': call.lineno
                                     }
