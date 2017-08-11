@@ -457,7 +457,7 @@ class CustomFramework(Framework):
                     if (type(subscript.value) is _ast3.Attribute and
                             subscript.value.attr == 'cleaned_data' and
                             type(subscript.value.value) is _ast3.Name and
-                            subscript.value.value.id == reqName):
+                            subscript.value.value.id):
                         # This processes the following:
                         # <reqName>.cleaned_data['first_name']
                         value = ast3.literal_eval(subscript.slice.value)
