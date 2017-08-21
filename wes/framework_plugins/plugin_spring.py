@@ -151,12 +151,13 @@ class CustomFramework(Framework):
         :param filepath: The filepath to the script file
         :return: None
         """
+        springAnnos = ["RequestMapping", "GetMapping", "PostMapping", "PutMapping", "DeleteMapping", "PatchMapping"]
         tree = self.processor.javaCompilationUnits[filepath]
 
         # Use the Javalang filter method to find all annotations in that
         # specific file and loop through them checking if they're ReqMaps
         for path, anno in tree.filter(javalang.tree.Annotation):
-            if anno.name == "RequestMapping":
+            if anno.name in springAnnos:
                 # Checks if the ReqMap is on a class
                 if self.processor.check_annotation_type(path) == 'class':
                     continue  # the ReqMap is on a class we'll skip it for now
@@ -289,6 +290,11 @@ class CustomFramework(Framework):
                 endpointDict['headers'] = endpointDict['headers'] | set(resolvedParameters['headers'])
             else:
                 endpointDict['headers'].add(resolvedParameters['headers'].replace('=', ': '))
+
+        # Add methods for shorthand mappings
+        if annotation.name.endswith('Mapping') and annotation.name != 'RequestMapping':
+            method = annotation.name[:-len('Mapping')]
+            endpointDict['methods'].add(method.upper())
 
         return endpointDict
 
