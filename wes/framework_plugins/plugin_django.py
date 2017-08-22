@@ -100,7 +100,7 @@ class CustomFramework(Framework):
                     includeParams = self.processor.parse_python_method_args(endpoint['view'], ['module', 'namespace', 'app_name'])
 
                     # this accounts for the following: include("module.view")
-                    if type(includeParams['module']) not in [_ast3.Attribute, _ast3.List]:
+                    if type(includeParams['module']) not in [_ast3.Attribute, _ast3.List, _ast3.Name]:
                         moduleLocalPath = includeParams['module'].replace('.', '/') + '.py'
                         fp = os.path.join(self.workingDir,         self.projectRootDir, moduleLocalPath)
 
@@ -119,6 +119,11 @@ class CustomFramework(Framework):
 
                     # this accounts for the following: include(module.view) Notice no ""
                     elif type(includeParams['module']) is _ast3.Attribute:
+                        # TODO
+                        pass
+
+                    # this accounts for the following: include(name) when imported as "from x import y as name"
+                    elif type(includeParams['module']) is _ast3.Name:
                         # TODO
                         pass
                 else:
