@@ -365,10 +365,12 @@ class CustomFramework(Framework):
             elif isinstance(importObject, _ast3.ImportFrom):
                 # Root path is module directory or current directory depending on level
                 modulePath = importObject.module.replace('.', '/') + '/' if importObject.module else ''
-                if importObject.level == 0 and modulePath and locationFound.find(modulePath) != -1:
-                    rootPath = locationFound[:locationFound.find(modulePath)]
-                elif importObject.level > 0:
+                if importObject.level > 0:
                     rootPath = locationFound[:locationFound.rfind('/') + 1]
+                elif importObject.level == 0 and modulePath not in locationFound:
+                    rootPath = locationFound[:locationFound.rfind('/') + 1]
+                elif importObject.level == 0 and modulePath in locationFound:
+                    rootPath = locationFound[:locationFound.find(modulePath)]
                 else:
                     logger.warning("This is most likely a view from an external library: %s", name)
                     return None
