@@ -273,6 +273,7 @@ def arachniYaml():
     includeNoParams = request.args.get('includeNoParams', None)
     onlyRegex = request.args.get('onlyRegex', None)
     onlyNoParams = request.args.get('onlyNoParams', None)
+    defaultParamValue = request.args.get('defaultParamValue', 'WESSCANNER')
 
     # Check if we should include endpoints with regex in them
     if (includeRegex and includeRegex == '1') or (onlyRegex and onlyRegex == '1'):
@@ -311,7 +312,7 @@ def arachniYaml():
         outputYaml += u"  :inputs:\n"
         if endpoint['parameters'] != "":
             for param in endpoint['parameters']:
-                outputYaml += u"    {}: {}\n".format(param, "INDEEDSECURITY")
+                outputYaml += u"    {}: {}\n".format(param, defaultParamValue)
         outputYaml += u"  :source:\n"
 
     return Response(outputYaml, mimetype='application/x-yaml', headers={"Content-Disposition": "attachment;filename=vectors.yml"})
