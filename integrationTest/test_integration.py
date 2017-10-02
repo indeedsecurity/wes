@@ -12,7 +12,7 @@ def test_integration(tmpdir_factory):
     # Determine our working directory
     workingDir = str(tmpdir_factory.getbasetemp())
 
-    projects = [{'baseUrl': 'http://west.indeed.com/', 'gitRepo': 'git@github.com:indeedsecurity/WEST.git'}]
+    projects = [{'baseUrl': 'http://west.example.com/', 'gitRepo': 'git@github.com:indeedsecurity/WEST.git'}]
 
     for project in projects:
         # Create commonly used variables for each Repo
