@@ -9,7 +9,7 @@ import javalang
 def plugin(tmpdir_factory):
     # Setup the object by cloning WEST and creating instance of JavaProcessor
     workingDir = str(tmpdir_factory.getbasetemp())
-    project = {'baseUrl': 'http://west.indeed.com/', 'gitRepo': 'git@github.com:indeedsecurity/WEST.git'}
+    project = {'baseUrl': 'http://west.example.com/', 'gitRepo': 'git@github.com:indeedsecurity/WEST.git'}
     projectRepoPath = project['gitRepo'].split(':')[-1][:-4]
     projectName = project['gitRepo'].split('/')[-1][:-4]
     productGroup = projectRepoPath.split('/')[0]
