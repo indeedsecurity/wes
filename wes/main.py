@@ -51,6 +51,8 @@ def load_projects_csv(csvFile):  # pragma: no cover
 
 
 def clone_update_repo(projectFolder, gitRepo):
+    success = True
+
     # Check if the project has a folder in the working Dir
     if os.path.isdir(projectFolder):
         try:
@@ -60,13 +62,21 @@ def clone_update_repo(projectFolder, gitRepo):
             o = r.remotes.origin
             o.pull()
         except GitCommandError as e:
+            logger.warning("Unable to pull project changes. Will try to re-clone.")
             shutil.rmtree(projectFolder)
-            clone_update_repo(projectFolder, gitRepo)
+            success = clone_update_repo(projectFolder, gitRepo)
     else:
-        # Project doesn't exist in the working dir yet, let's clone it
-        logger.info("Cloning the project...")
-        os.makedirs(projectFolder)
-        r = Repo.clone_from(gitRepo, projectFolder)
+        try:
+            # Project doesn't exist in the working dir yet, let's clone it
+            logger.info("Cloning the project...")
+            os.makedirs(projectFolder)
+            r = Repo.clone_from(gitRepo, projectFolder)
+        except GitCommandError as e:
+            logger.warning("An error occurred while cloning the project.")
+            logger.warning("Verify the repository exists and you have access.")
+            success = False
+
+    return success
 
 
 def find_framework_plugins():
@@ -393,7 +403,10 @@ def main(sysargs=sys.argv[1:]):
             projectFolder = os.path.join(groupFolder, projectName)
 
             # clone/update the repositories
-            clone_update_repo(projectFolder, project['gitRepo'])
+            cloned = clone_update_repo(projectFolder, project['gitRepo'])
+            if not cloned:
+                logger.debug("Unable to clone or update the project. Trying next project.")
+                continue
 
         # Find and import all framework plugins
         framework_plugins = find_framework_plugins()
