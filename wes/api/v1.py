@@ -243,6 +243,88 @@ def parameters():
         results.add(parameter.name)
     return flask.jsonify(list(results))
 
+def convert_elements(elements):
+    # check elements
+    if not elements:
+        return []
+
+    # add value
+    for element in elements:
+        if 'value' not in element:
+            element['value'] = ""
+
+    return elements
+
+@api_v1.route('/har')
+def har():
+    """
+    An endpoint that returns HAR formatted json and allows for the
+    filtering based on the query strings you pass in. The following are
+    supported query strings:
+        - filepath=String
+        - templates=String
+        - endpoint=String
+        - gitRepo=String
+        - productGroup=String
+        - product=String
+        - method=String
+        - params=String
+        - plugin=String
+        - onlyRegex=Bool(1 or 0)
+        - onlyNoParams=Bool(1 or 0)
+
+    :return: HAR formatted JSON data from the search
+    """
+    # queries = create_tinydb_query_from_qs()
+    result = create_query_from_qs(s).all()
+    results = map(lambda x: x.to_dict(), result)
+
+    entries = []
+
+    for endpoint in results:
+        # defaults
+        query_string = []
+        post_data_params = []
+        mime_type = ""
+
+        # url and method
+        url = endpoint['url']
+        method = endpoint['method'] or ""
+
+        # headers
+        headers = convert_elements(endpoint.get('headers'))
+
+        # cookies
+        cookies = convert_elements(endpoint.get('cookies'))
+
+        # query string
+        if method.upper() in ["GET", ""]:
+            query_string = convert_elements(endpoint.get('params'))
+
+         # post data params
+        if method.upper() == "POST":
+            post_data_params = convert_elements(endpoint.get('params'))
+
+        # mime type
+        if post_data_params:
+            mime_type = "application/x-www-form-urlencoded"
+
+        # add to entries
+        entries.append({'request': {
+            'method': method,
+            'url': url,
+            'cookies': cookies,
+            'headers': headers,
+            'queryString': query_string,
+            'postData': {
+                'mimeType': mime_type,
+                'params': post_data_params,
+                'text': ""
+            }
+        }})
+
+    # return all endpoints
+    return flask.jsonify({'log': {'entries': entries}})
 
 @api_v1.route('/arachniYaml')
 def arachniYaml():
