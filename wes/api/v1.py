@@ -289,7 +289,7 @@ def har():
 
         # url and method
         url = endpoint['url']
-        method = endpoint['method'] or ""
+        method = endpoint['method'] or "GET"
 
         # headers
         headers = convert_elements(endpoint.get('headers'))
@@ -298,7 +298,7 @@ def har():
         cookies = convert_elements(endpoint.get('cookies'))
 
         # query string
-        if method.upper() in ["GET", ""]:
+        if method.upper() == "GET":
             query_string = convert_elements(endpoint.get('params'))
 
          # post data params
