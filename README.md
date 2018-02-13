@@ -91,10 +91,10 @@ to run WES with just plain docker you simply have mimic the behavior of Swarm
 Secrets by passing your private key into the correct location. This private key
 is the one that will be used to allow you to clone all of the projects from the
 remote git repository. The key will need to be passed into the following
-location within the docker container: `/run/secrets/wes_priv_key`. You can do
+location within the docker container: `/run/secrets/wes-git-private-key`. You can do
 this with the following command:
 ```
-docker run -p 127.0.0.1:5000:5000 -v /path/to/privatekey:/run/secrets/wes_priv_key --name="wes" indeedsecurity/wes
+docker run -p 127.0.0.1:5000:5000 -v /path/to/privatekey:/run/secrets/wes-git-private-key --name="wes" indeedsecurity/wes
 ```
 The above command will also expose the port 5000 so that you can access the REST
 api. You are now running WES in Docker. Feel free to navigate to
@@ -104,13 +104,13 @@ api. You are now running WES in Docker. Feel free to navigate to
 First we need to create our secret which is the ssh private key that will be
 used to clone all the repositories.
 ```
-openssl rsa -in ~/.ssh/id_rsa | docker secret create wes_priv_key -
+openssl rsa -in ~/.ssh/id_rsa | docker secret create wes-git-private-key -
 ```
 
 After we add the secret we can they create the swarm service and pass in the
 secret with the following command:
 ```
-docker service create --name="wes" --secret="wes_priv_key" --publish 5000:5000 indeedsecurity/wes
+docker service create --name="wes" --secret="wes-git-private-key" --publish 5000:5000 indeedsecurity/wes
 ```
 
 You are now running WES in Docker Swarm. Feel free to navigate to
