@@ -27,15 +27,14 @@ COPY supervisord.conf /etc/supervisord.conf
 # Install python requirements
 COPY requirements.txt /usr/src/app/
 USER root
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt && pip3 install  --no-cache-dir gunicorn
 
-# Add capibility to open privileged ports
-RUN mkdir -p /etc/security && echo 'cap_net_admin wes' > /etc/security/capability.conf
-USER wes
 
 # Copy over the project files to working dir
+USER wes
 COPY wes /usr/src/app/wes
 COPY projects.csv /usr/src/app
+COPY gunicorn.conf /usr/src/app
 COPY entrypoint.sh /
 
 # Set environment variable so python output is unbuffered for supervisord
@@ -46,12 +45,13 @@ RUN touch /tmp/supervisor.sock && chmod 755 /tmp/supervisor.sock
 COPY cron /usr/src/app
 USER root
 RUN crontab /usr/src/app/cron
-USER wes
 
 # Grab ssh pub key from gitlab server
+USER wes
 RUN mkdir -p ${HOME}/.ssh && touch ${HOME}/.ssh/known_hosts && ssh-keyscan -H github.com >> ${HOME}/.ssh/known_hosts
 
 EXPOSE 80
 
 # Start supervisor
+USER root
 ENTRYPOINT ["/entrypoint.sh"]

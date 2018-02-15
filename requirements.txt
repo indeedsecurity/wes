@@ -8,3 +8,4 @@ pytest-mock==1.5.0
 pytest-cov==2.4.0
 SQLAlchemy==1.1.8
 psycopg2==2.7.1
+python-dateutil==2.6.1
