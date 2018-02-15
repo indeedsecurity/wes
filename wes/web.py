@@ -13,7 +13,7 @@ app.register_blueprint(api_v1, url_prefix='/wes/api/v1')
 
 def console():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--port', action='store',
+    parser.add_argument('-p', '--port', action='store', type=int,
                         help='The port to run the server on.',
                         default=5000)
     parser.add_argument('-i', '--host', action='store',
