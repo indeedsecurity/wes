@@ -48,7 +48,7 @@ USER wes
 # Grab ssh pub key from gitlab server
 RUN mkdir -p ${HOME}/.ssh && touch ${HOME}/.ssh/known_hosts && ssh-keyscan -H github.com >> ${HOME}/.ssh/known_hosts
 
-EXPOSE 5000
+EXPOSE 80
 
 # Start supervisor
 ENTRYPOINT ["/entrypoint.sh"]
