@@ -3,7 +3,7 @@ MAINTAINER Caleb Coffie "calebc@indeed.com"
 
 # Install needed packages
 RUN apk add --no-cache python3-dev python3 supervisor wget curl bash libxml2 \
-  libxml2-dev libxslt libxslt-dev gcc g++ git openssh postgresql-dev
+  libxml2-dev libxslt libxslt-dev gcc g++ git openssh postgresql-dev libcap
 
 # Set timezone. This is required for correct timestamps
 RUN apk add --update --no-cache tzdata ca-certificates && update-ca-certificates
