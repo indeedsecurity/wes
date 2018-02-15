@@ -29,9 +29,8 @@ COPY requirements.txt /usr/src/app/
 USER root
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Add capibility to Python to open privileged ports
-RUN setcap cap_net_raw+ep `realpath $(which python3)`
-RUN setcap cap_net_raw+ep `realpath $(which nice)`
+# Add capibility to open privileged ports
+RUN mkdir -p /etc/security && echo 'cap_net_admin wes' > /etc/security/capability.conf
 USER wes
 
 # Copy over the project files to working dir
