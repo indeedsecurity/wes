@@ -31,6 +31,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Add capibility to Python to open privileged ports
 RUN setcap cap_net_raw+ep `realpath $(which python3)`
+RUN setcap cap_net_raw+ep `realpath $(which nice)`
 USER wes
 
 # Copy over the project files to working dir
