@@ -332,7 +332,10 @@ def main(sysargs=sys.argv[1:]):
     elif 'WES_DATABASE_URI' in os.environ:
         databaseUri = os.environ['WES_DATABASE_URI']
     else:
-        databaseUri = 'sqlite:///' + os.path.join(workingDir, 'endpoints.sqlite')
+        sqlite_file = os.path.join(workingDir, 'endpoints.sqlite')
+        databaseUri = 'sqlite:///' + sqlite_file)
+        if not os.path.exists(sqlite_file):
+            os.mknod(sqlite_file)
 
     db = load_db(databaseUri=databaseUri)
 
