@@ -17,8 +17,14 @@ Currently WES supports processing the following frameworks:
 ## Installation
 To install the project you will want to do the following:
 
+From Github:
 ```
 pip install git+ssh://git@github.com/indeedsecurity/wes.git
+```
+
+
+```
+
 ```
 
 ## Running
@@ -36,7 +42,7 @@ wes -f myProjectFolder -u http://myProjectsBaseUrl.com
 
 #### Git repo
 ```
-wes -g git@github.com:owner/project.git -u http://myProjectsBaseUrl.com
+wes -r git@github.com:owner/project.git -u http://myProjectsBaseUrl.com
 ```
 
 #### Multiple projects
