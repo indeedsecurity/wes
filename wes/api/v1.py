@@ -308,6 +308,15 @@ def har():
         # mime type
         if post_data_params:
             mime_type = "application/x-www-form-urlencoded"
+        
+        # wes specific properties
+        plugin = endpoint.get('plugin')
+        templates = endpoint.get('templates')
+        filepath = endpoint.get('filepath')
+        lineNumber = endpoint.get('lineNumber')
+        product = endpoint.get('product')
+        productGroup = endpoint.get('productGroup')
+        gitRepo = endpoint.get('gitRepo')
 
         # add to entries
         entries.append({'request': {
@@ -320,6 +329,15 @@ def har():
                 'mimeType': mime_type,
                 'params': post_data_params,
                 'text': ""
+            },
+            'wesProperties': {
+                'plugin': plugin,
+                'templates': templates,
+                'filepath': filepath,
+                'lineNumber': lineNumber,
+                'product': product,
+                'productGroup': productGroup,
+                'gitRepo': gitRepo,
             }
         }})
 
