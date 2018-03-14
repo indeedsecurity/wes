@@ -22,11 +22,6 @@ From Github:
 pip install git+ssh://git@github.com/indeedsecurity/wes.git
 ```
 
-
-```
-
-```
-
 ## Running
 ### Processing the source code
 WES supports a few methods of running from the command line. You have the option
