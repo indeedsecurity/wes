@@ -330,7 +330,7 @@ def har():
                 'params': post_data_params,
                 'text': ""
             },
-            'wesProperties': {
+            'metadata': {
                 'plugin': plugin,
                 'templates': templates,
                 'filepath': filepath,
