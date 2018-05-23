@@ -467,7 +467,15 @@ class CustomFramework(Framework):
                             subscript.value.value.id):
                         # This processes the following:
                         # <reqName>.cleaned_data['first_name']
-                        value = ast3.literal_eval(subscript.slice.value)
+                        try:
+                            value = ast3.literal_eval(subscript.slice.value)
+                        except ValueError:
+                            # Happens when the parameter name is dynamically generated
+                            # <reqName>.cleaned_data['first_name' + i]
+                            msg = "Couldn't resolve parameter name. File '%s' line '%d'"
+                            logger.warning(msg, endpoints[i]['viewFilepath'], subscript.lineno)
+                            continue
+
                         if type(value) is bytes:
                             value = value.decode("utf-8")  # Accounting for weird bug in typed-ast library
                         paramDict = {
@@ -482,7 +490,15 @@ class CustomFramework(Framework):
                             subscript.value.value.id == reqName):
                         # This processes the following:
                         # <reqName>.<method_in_caps>["id"]
-                        value = ast3.literal_eval(subscript.slice.value)
+                        try:
+                            value = ast3.literal_eval(subscript.slice.value)
+                        except ValueError:
+                            # Happens when the parameter name is dynamically generated
+                            # <reqName>.<method_in_caps>["id" + i]
+                            msg = "Couldn't resolve parameter name. File '%s' line '%d'"
+                            logger.warning(msg, endpoints[i]['viewFilepath'], subscript.lineno)
+                            continue
+
                         if type(value) is bytes:
                             value = value.decode("utf-8")  # Accounting for weird bug in typed-ast library
                         paramDict = {
@@ -499,7 +515,15 @@ class CustomFramework(Framework):
                             subscript.value.value.value.id == 'self'):
                         # This processes the following:
                         # self.request.<method_in_caps>["id"]
-                        value = ast3.literal_eval(subscript.slice.value)
+                        try:
+                            value = ast3.literal_eval(subscript.slice.value)
+                        except ValueError:
+                            # Happens when the parameter name is dynamically generated
+                            # self.request.<method_in_caps>["id" + i]
+                            msg = "Couldn't resolve parameter name. File '%s' line '%d'"
+                            logger.warning(msg, endpoints[i]['viewFilepath'], subscript.lineno)
+                            continue
+
                         if type(value) is bytes:
                             value = value.decode("utf-8")  # Accounting for weird bug in typed-ast library
                         paramDict = {
