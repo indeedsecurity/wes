@@ -8,24 +8,24 @@ import javalang
 @pytest.fixture(scope="module")
 def plugin(tmpdir_factory):
     # Setup the object by cloning WEST and creating instance of JavaProcessor
-    workingDir = str(tmpdir_factory.getbasetemp())
-    project = {'baseUrl': 'http://west.example.com/', 'gitRepo': 'git@github.com:indeedsecurity/WEST.git'}
-    projectRepoPath = project['gitRepo'].split(':')[-1][:-4]
-    projectName = project['gitRepo'].split('/')[-1][:-4]
-    productGroup = projectRepoPath.split('/')[0]
+    working_dir = str(tmpdir_factory.getbasetemp())
+    project = {'base_url': 'http://west.example.com/', 'git_repo': 'git@github.com:indeedsecurity/WEST.git'}
+    project_repo_path = project['git_repo'].split(':')[-1][:-4]
+    project_name = project['git_repo'].split('/')[-1][:-4]
+    product_group = project_repo_path.split('/')[0]
 
-    groupFolder = os.path.join(workingDir, productGroup)
-    projectFolder = os.path.join(groupFolder, projectName)
+    group_folder = os.path.join(working_dir, product_group)
+    project_folder = os.path.join(group_folder, project_name)
 
     # clone/update the repositories
-    clone_update_repo(projectFolder, project['gitRepo'])
+    clone_update_repo(project_folder, project['git_repo'])
 
     processors = {
-        'java': JavaProcessor(workingDir=projectFolder)
+        'java': JavaProcessor(working_dir=project_folder)
     }
     processors['java'].load_project()
 
-    return CustomFramework(workingDir=os.path.abspath(projectFolder), processors=processors)
+    return CustomFramework(working_dir=os.path.abspath(project_folder), processors=processors)
 
 def test_identify(plugin, mocker):
     assert plugin.identify() == True
@@ -73,7 +73,7 @@ def test_find_servlet_classes(plugin, mocker):
     except ImportError:
         import xml.etree.ElementTree as ET
 
-    plugin.rootElement = ET.XML("""
+    plugin.root_element = ET.XML("""
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:jsp="http://java.sun.com/xml/ns/javaee/jsp" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd" version="3.0">
   <display-name>WEST</display-name>
@@ -104,7 +104,7 @@ def test_find_servlet_classes(plugin, mocker):
   </servlet-mapping>
 </web-app>
 """.strip().encode('ascii', errors='backslashreplace'))
-    plugin.namespace = plugin.rootElement.nsmap[None]
+    plugin.namespace = plugin.root_element.nsmap[None]
 
     assert plugin._find_servlet_classes("") == [
         {'class': 'org.springframework.web.servlet.DispatcherServlet', 'name': 'spring'},
@@ -115,7 +115,7 @@ def test_find_servlet_classes(plugin, mocker):
 def test_find_servlet_classes_bad(plugin, mocker):
     mocker.patch('wes.framework_plugins.plugin_javaservlet.CustomFramework._load_xml')
 
-    plugin.rootElement = None
+    plugin.root_element = None
 
     assert plugin._find_servlet_classes("") == None
 
@@ -126,7 +126,7 @@ def test_find_path_for_servlet(plugin, mocker):
     except ImportError:
         import xml.etree.ElementTree as ET
 
-    plugin.rootElement = ET.XML("""
+    plugin.root_element = ET.XML("""
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:jsp="http://java.sun.com/xml/ns/javaee/jsp" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd" version="3.0">
   <display-name>WEST</display-name>
@@ -157,7 +157,7 @@ def test_find_path_for_servlet(plugin, mocker):
   </servlet-mapping>
 </web-app>
 """.strip().encode('ascii', errors='backslashreplace'))
-    plugin.namespace = plugin.rootElement.nsmap[None]
+    plugin.namespace = plugin.root_element.nsmap[None]
 
     assert plugin._find_path_for_servlet("", "") == None
     assert plugin._find_path_for_servlet("", "spring") == set(["/"])
@@ -167,7 +167,7 @@ def test_find_path_for_servlet(plugin, mocker):
 def test_find_path_for_servlet_bad(plugin, mocker):
     mocker.patch('wes.framework_plugins.plugin_javaservlet.CustomFramework._load_xml')
 
-    plugin.rootElement = None
+    plugin.root_element = None
 
     assert plugin._find_path_for_servlet("", "") == None
 
@@ -201,7 +201,7 @@ def test_find_class_file_path(plugin, mocker):
     assert plugin._find_class_file_path('com.indeed.security.wes.MYTESTCLASS') == '/myCodeBaseDir/com/indeed/security/wes/MYTESTCLASS.java'
 
 def test_find_request_get_param(plugin):
-    plugin.processor.javaCompilationUnits['TestFile'] = javalang.parse.parse(
+    plugin.processor.java_compilation_units['test_file'] = javalang.parse.parse(
     """
 package com.indeed.security.wes.west.servlets;
 import java.io.IOException;
@@ -219,18 +219,18 @@ public class JSTEST extends HttpServlet {
     """)
 
     endpoint = {
-        'filepath': 'TestFile',
+        'filepath': 'test_file',
         'params': []
     }
 
     assert plugin._find_request_get_param(endpoint) == {
-        'filepath': 'TestFile',
-        'params': [{'filepath': 'TestFile', 'lineNumber': 11, 'name': 'a'},
-                   {'filepath': 'TestFile', 'lineNumber': 12, 'name': 'b'}]
+        'filepath': 'test_file',
+        'params': [{'filepath': 'test_file', 'line_number': 11, 'name': 'a'},
+                   {'filepath': 'test_file', 'line_number': 12, 'name': 'b'}]
     }
 
 def test_find_request_get_param_member(plugin):
-    plugin.processor.javaCompilationUnits['TestFile'] = javalang.parse.parse(
+    plugin.processor.java_compilation_units['test_file'] = javalang.parse.parse(
     """
 package com.indeed.security.wes.west.servlets;
 import java.io.IOException;
@@ -248,21 +248,21 @@ public class JSTEST extends HttpServlet {
     """)
 
     # Just processing the literals for this example. This is normally done for you automatically.
-    plugin.processor.variableLookupTable.update(
-        plugin.processor._preprocess_java_literals(plugin.processor.javaCompilationUnits['TestFile']))
+    plugin.processor.variable_lookup_table.update(
+        plugin.processor._preprocess_java_literals(plugin.processor.java_compilation_units['test_file']))
 
     endpoint = {
-        'filepath': 'TestFile',
+        'filepath': 'test_file',
         'params': []
     }
 
     assert plugin._find_request_get_param(endpoint) == {
-        'filepath': 'TestFile',
-        'params': [{'filepath': 'TestFile', 'lineNumber': 12, 'name': 'a'}]
+        'filepath': 'test_file',
+        'params': [{'filepath': 'test_file', 'line_number': 12, 'name': 'a'}]
     }
 
 def test_find_referenced_jsps(plugin):
-    plugin.processor.javaCompilationUnits['TestFile2'] = javalang.parse.parse(
+    plugin.processor.java_compilation_units['test_file2'] = javalang.parse.parse(
     """
 package com.indeed.security.wes.west.servlets;
 import java.io.IOException;
@@ -279,12 +279,12 @@ public class JSTEST extends HttpServlet {
     """)
 
     endpoint = {
-        'filepath': 'TestFile2'
+        'filepath': 'test_file2'
     }
     assert 'java/src/main/webapp/WEB-INF/jsp/servlets/test.jsp' in plugin._find_referenced_jsps(endpoint)['templates']
 
 def test_find_referenced_jsps_member(plugin):
-    plugin.processor.javaCompilationUnits['TestFile3'] = javalang.parse.parse(
+    plugin.processor.java_compilation_units['test_file3'] = javalang.parse.parse(
     """
 package com.indeed.security.wes.west.servlets;
 import java.io.IOException;
@@ -303,16 +303,16 @@ public class JSTEST extends HttpServlet {
 }
     """)
     # Just processing the literals for this example. This is normally done for you automatically.
-    plugin.processor.variableLookupTable.update(plugin.processor._preprocess_java_literals(plugin.processor.javaCompilationUnits['TestFile3']))
+    plugin.processor.variable_lookup_table.update(plugin.processor._preprocess_java_literals(plugin.processor.java_compilation_units['test_file3']))
 
     endpoint = {
-        'filepath': 'TestFile3'
+        'filepath': 'test_file3'
     }
 
     assert 'java/src/main/webapp/WEB-INF/jsp/servlets/test.jsp' in plugin._find_referenced_jsps(endpoint)['templates']
 
 def test_find_referenced_jsps_with_templates(plugin):
-    plugin.processor.javaCompilationUnits['TestFile4'] = javalang.parse.parse(
+    plugin.processor.java_compilation_units['test_file4'] = javalang.parse.parse(
     """
 package com.indeed.security.wes.west.servlets;
 import java.io.IOException;
@@ -329,13 +329,13 @@ public class JSTEST extends HttpServlet {
     """)
 
     endpoint = {
-        'filepath': 'TestFile4',
+        'filepath': 'test_file4',
         'templates': ['java/src/main/webapp/one', 'two']
     }
-    resultingEndpoint = plugin._find_referenced_jsps(endpoint)
-    assert 'java/src/main/webapp/WEB-INF/jsp/servlets/test.jsp' in resultingEndpoint['templates']
-    assert 'java/src/main/webapp/one' in resultingEndpoint['templates']
-    assert 'java/src/main/webapp/two' in resultingEndpoint['templates']
+    resulting_endpoint = plugin._find_referenced_jsps(endpoint)
+    assert 'java/src/main/webapp/WEB-INF/jsp/servlets/test.jsp' in resulting_endpoint['templates']
+    assert 'java/src/main/webapp/one' in resulting_endpoint['templates']
+    assert 'java/src/main/webapp/two' in resulting_endpoint['templates']
 
 def test_find_jsp_params(plugin, mocker):
     # Not going to test this here because it's already tested elsewhere
@@ -356,7 +356,7 @@ def test_find_jsp_params(plugin, mocker):
             {'filepath': 'WEB-INF/jsp/servlets/test1.jsp', 'name': '3c'}] == plugin._find_jsp_params(endpoint)['params']
 
 def test_find_methods_for_endpoint(plugin):
-    plugin.processor.javaCompilationUnits['TestFile5'] = javalang.parse.parse(
+    plugin.processor.java_compilation_units['test_file5'] = javalang.parse.parse(
     """
 package com.indeed.security.wes.west.servlets;
 import java.io.IOException;
@@ -391,7 +391,7 @@ public class JSTEST extends HttpServlet {
     """)
 
     endpoint = {
-        'filepath': 'TestFile5',
+        'filepath': 'test_file5',
         'methods': set()
     }
     methods = set(['GET', 'POST', 'DELETE', 'HEAD', 'OPTIONS', 'PUT', 'TRACE'])
@@ -414,11 +414,11 @@ def test_clean_endpoints(plugin):
             'params': set(['test1', 'test2'])
         }
     ]
-    expectedEndpoints = [
+    expected_endpoints = [
         {
             'endpoints': set(['test/path/[^/]*', 'profile']),
             'params': set(['test1', 'test2']),
             'methods': set(['POST', 'GET']),
         }
     ]
-    assert plugin._clean_endpoints(endpoints) == expectedEndpoints
+    assert plugin._clean_endpoints(endpoints) == expected_endpoints

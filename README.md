@@ -46,7 +46,7 @@ supplying a CSV file containing the git repositories for each project. Below
 you'll see the required format for this csv file.
 
 ```
-baseUrl,gitRepo
+base_url,git_repo
 https://example.com,git@github.com:owner/project1.git
 https://test.com,git@github.com:owner/project2.git
 ```

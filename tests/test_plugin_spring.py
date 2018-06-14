@@ -8,24 +8,24 @@ import javalang
 @pytest.fixture(scope="module")
 def plugin(tmpdir_factory):
     # Setup the object by cloning WEST and creating instance of JavaProcessor
-    workingDir = str(tmpdir_factory.getbasetemp())
-    project = {'baseUrl': 'http://west.example.com/', 'gitRepo': 'git@github.com:indeedsecurity/WEST.git'}
-    projectRepoPath = project['gitRepo'].split(':')[-1][:-4]
-    projectName = project['gitRepo'].split('/')[-1][:-4]
-    productGroup = projectRepoPath.split('/')[0]
+    working_dir = str(tmpdir_factory.getbasetemp())
+    project = {'base_url': 'http://west.example.com/', 'git_repo': 'git@github.com:indeedsecurity/WEST.git'}
+    project_repo_path = project['git_repo'].split(':')[-1][:-4]
+    project_name = project['git_repo'].split('/')[-1][:-4]
+    product_group = project_repo_path.split('/')[0]
 
-    groupFolder = os.path.join(workingDir, productGroup)
-    projectFolder = os.path.join(groupFolder, projectName)
+    group_folder = os.path.join(working_dir, product_group)
+    project_folder = os.path.join(group_folder, project_name)
 
     # clone/update the repositories
-    clone_update_repo(projectFolder, project['gitRepo'])
+    clone_update_repo(project_folder, project['git_repo'])
 
     processors = {
-        'java': JavaProcessor(workingDir=projectFolder)
+        'java': JavaProcessor(working_dir=project_folder)
     }
     processors['java'].load_project()
 
-    return CustomFramework(workingDir=os.path.abspath(projectFolder), processors=processors)
+    return CustomFramework(working_dir=os.path.abspath(project_folder), processors=processors)
 
 def test_identify(plugin, mocker):
     # This test will be tricky... I'm gonna put this off till later
@@ -47,7 +47,7 @@ def test_find_endpoints(plugin, mocker):
     assert plugin.find_endpoints() == 'Success!'
 
 def test_find_request_mappings(plugin):
-    plugin.processor.javaCompilationUnits['TestFile1'] = javalang.parse.parse(
+    plugin.processor.java_compilation_units['test_file1'] = javalang.parse.parse(
     """
 package com.indeed.security.wes.west.controllers;
 import org.springframework.stereotype.Controller;
@@ -62,18 +62,18 @@ public class SMVC001 {
 }
     """)
 
-    plugin._find_request_mappings('TestFile1')
+    plugin._find_request_mappings('test_file1')
 
-    endpointDict = plugin.endpoints[-1]
+    endpoint_dict = plugin.endpoints[-1]
 
-    assert endpointDict['endpoints'] == set(['/SMVC001'])
-    assert endpointDict['filepath'] == 'TestFile1'
-    assert endpointDict['methods'] == set(['GET'])
-    assert endpointDict['params'] == []
-    assert str(endpointDict['javaPath']) == '(CompilationUnit, [ClassDeclaration], ClassDeclaration, [MethodDeclaration], MethodDeclaration)'
+    assert endpoint_dict['endpoints'] == set(['/SMVC001'])
+    assert endpoint_dict['filepath'] == 'test_file1'
+    assert endpoint_dict['methods'] == set(['GET'])
+    assert endpoint_dict['params'] == []
+    assert str(endpoint_dict['java_path']) == '(CompilationUnit, [ClassDeclaration], ClassDeclaration, [MethodDeclaration], MethodDeclaration)'
 
 def test_find_request_mappings_class(plugin):
-    plugin.processor.javaCompilationUnits['TestFile2'] = javalang.parse.parse(
+    plugin.processor.java_compilation_units['test_file2'] = javalang.parse.parse(
     """
 package com.indeed.security.wes.west.controllers;
 import org.springframework.stereotype.Controller;
@@ -89,18 +89,18 @@ public class SMVC001 {
 }
     """)
 
-    beginningLength = len(plugin.endpoints)
-    plugin._find_request_mappings('TestFile2')
-    finalLength = len(plugin.endpoints)
+    beginning_length = len(plugin.endpoints)
+    plugin._find_request_mappings('test_file2')
+    final_length = len(plugin.endpoints)
 
-    assert beginningLength + 1 == finalLength
+    assert beginning_length + 1 == final_length
 
-    endpointDict = plugin.endpoints[-1]
+    endpoint_dict = plugin.endpoints[-1]
 
-    assert endpointDict['endpoints'] == set(['/test/SMVC001'])
+    assert endpoint_dict['endpoints'] == set(['/test/SMVC001'])
 
 def test_find_request_mappings_abstract(plugin):
-    plugin.processor.javaCompilationUnits['TestFile3'] = javalang.parse.parse(
+    plugin.processor.java_compilation_units['test_file3'] = javalang.parse.parse(
     """
 package com.indeed.security.wes.west.controllers;
 import org.springframework.stereotype.Controller;
@@ -115,14 +115,14 @@ public abstract class SMVC001 {
 }
     """)
 
-    beginningLength = len(plugin.endpoints)
-    plugin._find_request_mappings('TestFile3')
-    finalLength = len(plugin.endpoints)
+    beginning_length = len(plugin.endpoints)
+    plugin._find_request_mappings('test_file3')
+    final_length = len(plugin.endpoints)
 
-    assert beginningLength == finalLength
+    assert beginning_length == final_length
 
 def test_find_request_mappings_no_controller(plugin):
-    plugin.processor.javaCompilationUnits['TestFile4'] = javalang.parse.parse(
+    plugin.processor.java_compilation_units['test_file4'] = javalang.parse.parse(
     """
 package com.indeed.security.wes.west.controllers;
 import org.springframework.stereotype.Controller;
@@ -136,11 +136,11 @@ public class SMVC001 {
 }
     """)
 
-    beginningLength = len(plugin.endpoints)
-    plugin._find_request_mappings('TestFile4')
-    finalLength = len(plugin.endpoints)
+    beginning_length = len(plugin.endpoints)
+    plugin._find_request_mappings('test_file4')
+    final_length = len(plugin.endpoints)
 
-    assert beginningLength == finalLength
+    assert beginning_length == final_length
 
 def test_has_controller_anno_false(plugin):
     tree = javalang.parse.parse(
@@ -236,10 +236,10 @@ def test_parse_req_map_annotation(plugin, mocker):
     class Object(object):
         pass
 
-    fakeAnnotation = Object()
-    fakeAnnotation.element = ''
+    fake_annotation = Object()
+    fake_annotation.element = ''
 
-    assert plugin._parse_req_map_annotation(fakeAnnotation, '') == {
+    assert plugin._parse_req_map_annotation(fake_annotation, '') == {
         'endpoints': {'/test'},
         'methods': {'GET'},
         'params': ['myParam'],
@@ -258,10 +258,10 @@ def test_parse_req_map_annotation_lists(plugin, mocker):
     class Object(object):
         pass
 
-    fakeAnnotation = Object()
-    fakeAnnotation.element = ''
+    fake_annotation = Object()
+    fake_annotation.element = ''
 
-    assert plugin._parse_req_map_annotation(fakeAnnotation, '') == {
+    assert plugin._parse_req_map_annotation(fake_annotation, '') == {
         'endpoints': {'/test', '/test2'},
         'methods': {'GET', 'POST'},
         'params': ['myParam', 'test'],
@@ -285,10 +285,10 @@ public class SMVC001 {
     """)
     anno = list(tree.filter(javalang.tree.Annotation))[1][1]
 
-    annoDictionary = plugin._parse_anno_args_to_dict(anno.element)
+    anno_dictionary = plugin._parse_anno_args_to_dict(anno.element)
 
-    assert type(annoDictionary['value']) is javalang.tree.Literal
-    assert type(annoDictionary['method']) is javalang.tree.MemberReference
+    assert type(anno_dictionary['value']) is javalang.tree.Literal
+    assert type(anno_dictionary['method']) is javalang.tree.MemberReference
 
 def test_parse_anno_args_to_dict_not_list(plugin):
     assert plugin._parse_anno_args_to_dict('test') == {'value': 'test'}
@@ -322,10 +322,10 @@ public class SMVC001 {
     """)
     anno = list(tree.filter(javalang.tree.Annotation))[1][1]
 
-    annoDictionary = plugin._parse_anno_args_to_dict(anno.element)
-    resolvedDictionary = plugin._resolve_values_in_dict(annoDictionary, tree)
+    anno_dictionary = plugin._parse_anno_args_to_dict(anno.element)
+    resolved_dictionary = plugin._resolve_values_in_dict(anno_dictionary, tree)
 
-    assert resolvedDictionary == {
+    assert resolved_dictionary == {
         'value': '/SMVC001',
         'method': ['GET', 'POST', 'DELETE', 'HEAD', 'OPTIONS', 'PUT', 'TRACE'],
         'header': 'c'
@@ -351,26 +351,26 @@ def test_combine_endpoint_sets(plugin):
         'params': {'testParam3', 'testParam4'}
     }
 
-    firstTest = plugin._combine_endpoint_sets(parent1, child1)
-    assert ('endpoints', {'/test1/test3', '/test1/test4', '/test2/test3', '/test2/test4'}) in firstTest.items()
-    assert ('methods', {'GET'}) in firstTest.items()
-    assert ('headers', set()) in firstTest.items()
-    assert ('lineNumber', None) in firstTest.items()
-    assert set(firstTest['params']) == {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
+    first_test = plugin._combine_endpoint_sets(parent1, child1)
+    assert ('endpoints', {'/test1/test3', '/test1/test4', '/test2/test3', '/test2/test4'}) in first_test.items()
+    assert ('methods', {'GET'}) in first_test.items()
+    assert ('headers', set()) in first_test.items()
+    assert ('line_number', None) in first_test.items()
+    assert set(first_test['params']) == {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
 
-    secondTest = plugin._combine_endpoint_sets(parent1, child2)
-    assert ('endpoints', {'/test1', '/test2'}) in secondTest.items()
-    assert ('methods', {'GET'}) in secondTest.items()
-    assert ('headers', set()) in secondTest.items()
-    assert ('lineNumber', None) in secondTest.items()
-    assert set(secondTest['params']) == {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
+    second_test = plugin._combine_endpoint_sets(parent1, child2)
+    assert ('endpoints', {'/test1', '/test2'}) in second_test.items()
+    assert ('methods', {'GET'}) in second_test.items()
+    assert ('headers', set()) in second_test.items()
+    assert ('line_number', None) in second_test.items()
+    assert set(second_test['params']) == {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
 
-    thirdTest = plugin._combine_endpoint_sets(parent2, child1)
-    assert ('endpoints', {'/test3', '/test4'}) in thirdTest.items()
-    assert ('methods', {'GET'}) in thirdTest.items()
-    assert ('headers', set()) in thirdTest.items()
-    assert ('lineNumber', None) in thirdTest.items()
-    assert set(thirdTest['params']) == {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
+    third_test = plugin._combine_endpoint_sets(parent2, child1)
+    assert ('endpoints', {'/test3', '/test4'}) in third_test.items()
+    assert ('methods', {'GET'}) in third_test.items()
+    assert ('headers', set()) in third_test.items()
+    assert ('line_number', None) in third_test.items()
+    assert set(third_test['params']) == {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
 
 
 def test_find_parameters(plugin, mocker):
@@ -402,12 +402,12 @@ public class SMVC001 {
     anno = list(tree.filter(javalang.tree.Annotation))[1]
 
     endpoint = {
-        'javaPath': anno[0],
+        'java_path': anno[0],
         'params': [],
-        'filepath': 'TestFile1'
+        'filepath': 'test_file1'
     }
 
-    assert plugin._find_request_param(endpoint)['params'] == [{'name': 'a', 'filepath': 'TestFile1', 'lineNumber': 10}]
+    assert plugin._find_request_param(endpoint)['params'] == [{'name': 'a', 'filepath': 'test_file1', 'line_number': 10}]
 
 def test_parse_req_param_anno(plugin, mocker):
     mocker.patch('wes.framework_plugins.plugin_spring.CustomFramework._parse_anno_args_to_dict')
@@ -417,10 +417,10 @@ def test_parse_req_param_anno(plugin, mocker):
     class Object(object):
         pass
 
-    fakeAnnotation = Object()
-    fakeAnnotation.element = 'test'
+    fake_annotation = Object()
+    fake_annotation.element = 'test'
 
-    assert plugin._parse_req_param_anno(fakeAnnotation, '') == 'testParam'
+    assert plugin._parse_req_param_anno(fake_annotation, '') == 'testParam'
 
 def test_find_request_get_param(plugin):
     tree = javalang.parse.parse(
@@ -444,12 +444,12 @@ public class SMVC001 {
     anno = list(tree.filter(javalang.tree.Annotation))[1]
 
     endpoint = {
-        'javaPath': anno[0],
+        'java_path': anno[0],
         'params': [],
-        'filepath': 'TestFile1'
+        'filepath': 'test_file1'
     }
 
-    assert plugin._find_request_get_param(endpoint)['params'] == [{'name': 'b', 'filepath': 'TestFile1', 'lineNumber': 11}]
+    assert plugin._find_request_get_param(endpoint)['params'] == [{'name': 'b', 'filepath': 'test_file1', 'line_number': 11}]
 
 def test_find_referenced_jsps(plugin):
     tree = javalang.parse.parse(
@@ -488,10 +488,10 @@ public class SMVC001 {
     anno3 = list(tree.filter(javalang.tree.Annotation))[3]
     anno4 = list(tree.filter(javalang.tree.Annotation))[4]
 
-    endpoint1 = {'javaPath': anno1[0]}
-    endpoint2 = {'javaPath': anno2[0]}
-    endpoint3 = {'javaPath': anno3[0]}
-    endpoint4 = {'javaPath': anno4[0]}
+    endpoint1 = {'java_path': anno1[0]}
+    endpoint2 = {'java_path': anno2[0]}
+    endpoint3 = {'java_path': anno3[0]}
+    endpoint4 = {'java_path': anno4[0]}
 
     assert plugin._find_referenced_jsps(endpoint1)['templates'] == {'java/src/main/webapp/WEB-INF/jsp/controllers/smvc001.jsp'}
     assert plugin._find_referenced_jsps(endpoint2)['templates'] == {'java/src/main/webapp/WEB-INF/jsp/controllers/smvc002.jsp'}
@@ -503,7 +503,7 @@ def test_find_params_in_jsps(plugin, mocker):
                  return_value=['c'])
 
     endpoint = {
-        'templates': {plugin.processor.webContextDir + 'myTemplate'},
+        'templates': {plugin.processor.web_context_dir + 'myTemplate'},
         'params': []
     }
 
@@ -529,11 +529,11 @@ def test_clean_endpoints(plugin):
             'params': set(['test1', 'test2'])
         }
     ]
-    expectedEndpoints = [
+    expected_endpoints = [
         {
             'endpoints': set(['test/path/[^/]*', 'profile']),
             'params': set(['test1', 'test2']),
             'methods': set(['POST', 'GET'])
         }
     ]
-    assert plugin._clean_endpoints(endpoints) == expectedEndpoints
+    assert plugin._clean_endpoints(endpoints) == expected_endpoints

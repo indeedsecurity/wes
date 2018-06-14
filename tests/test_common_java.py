@@ -10,46 +10,46 @@ import random
 @pytest.fixture(scope="module")
 def processor(tmpdir_factory):
     # Setup the object by cloning WEST and creating instance of JavaProcessor
-    workingDir = str(tmpdir_factory.getbasetemp())
-    project = {'baseUrl': 'http://west.example.com/', 'gitRepo': 'git@github.com:indeedsecurity/WEST.git'}
-    projectRepoPath = project['gitRepo'].split(':')[-1][:-4]
-    projectName = project['gitRepo'].split('/')[-1][:-4]
-    productGroup = projectRepoPath.split('/')[0]
+    working_dir = str(tmpdir_factory.getbasetemp())
+    project = {'base_url': 'http://west.example.com/', 'git_repo': 'git@github.com:indeedsecurity/WEST.git'}
+    project_repo_path = project['git_repo'].split(':')[-1][:-4]
+    project_name = project['git_repo'].split('/')[-1][:-4]
+    product_group = project_repo_path.split('/')[0]
 
-    groupFolder = os.path.join(workingDir, productGroup)
-    projectFolder = os.path.join(groupFolder, projectName)
+    group_folder = os.path.join(working_dir, product_group)
+    project_folder = os.path.join(group_folder, project_name)
 
     # clone/update the repositories
-    clone_update_repo(projectFolder, project['gitRepo'])
+    clone_update_repo(project_folder, project['git_repo'])
 
-    return JavaProcessor(workingDir=projectFolder)
+    return JavaProcessor(working_dir=project_folder)
 
 
 def test_processor_init(processor):
     assert type(processor) is JavaProcessor
-    assert hasattr(processor, 'workingDir')
-    assert hasattr(processor, 'webContextDir')
-    assert hasattr(processor, 'javaCompilationUnits')
-    assert hasattr(processor, 'variableLookupTable')
+    assert hasattr(processor, 'working_dir')
+    assert hasattr(processor, 'web_context_dir')
+    assert hasattr(processor, 'java_compilation_units')
+    assert hasattr(processor, 'variable_lookup_table')
 
 
 def test_load_project(processor, mocker):
     mocked_preprocess_java_literals = mocker.patch('wes.framework_plugins.common.JavaProcessor._preprocess_java_literals')
     mocked_preprocess_java_variables = mocker.patch('wes.framework_plugins.common.JavaProcessor._preprocess_java_variables')
     processor.load_project()
-    assert len(processor.javaCompilationUnits.keys()) > 0, "Check that we loaded things into the dict"
-    assert all('.java' in x for x in processor.javaCompilationUnits.keys()), "Check all keys in dict have .java in them"
+    assert len(processor.java_compilation_units.keys()) > 0, "Check that we loaded things into the dict"
+    assert all('.java' in x for x in processor.java_compilation_units.keys()), "Check all keys in dict have .java in them"
 
 def test_strip_work_dir(processor):
-    path = "myawesomePath/Testing/workingDir/CANiMeSSItuP.TxT"
-    fullPath = os.path.join(processor.workingDir, path)
-    assert processor.strip_work_dir(fullPath) == path, "Check that it removes working dir"
+    path = "myawesomePath/Testing/working_dir/CANiMeSSItuP.TxT"
+    full_path = os.path.join(processor.working_dir, path)
+    assert processor.strip_work_dir(full_path) == path, "Check that it removes working dir"
     with pytest.raises(IndexError):
         processor.strip_work_dir("Testing")
 
 def test_resolve_node_fqn_with_qualifier(processor):
-    westFile = "java/src/main/java/com/indeed/security/wes/west/controllers/SMVC010.java"
-    cu = processor.javaCompilationUnits[westFile]
+    west_file = "java/src/main/java/com/indeed/security/wes/west/controllers/SMVC010.java"
+    cu = processor.java_compilation_units[west_file]
     fqns = set()
     for path, node in cu.filter(javalang.tree.VariableDeclarator):
         if type(node.initializer) is javalang.tree.Literal:
@@ -63,8 +63,8 @@ def test_resolve_node_fqn_with_qualifier(processor):
     ])
 
 def test_resolve_node_fqn_without_qualifier(processor):
-    westFile = "java/src/main/java/com/indeed/security/wes/west/controllers/SMVC010.java"
-    cu = processor.javaCompilationUnits[westFile]
+    west_file = "java/src/main/java/com/indeed/security/wes/west/controllers/SMVC010.java"
+    cu = processor.java_compilation_units[west_file]
     fqns = set()
     for path, node in cu.filter(javalang.tree.VariableDeclarator):
         if type(node.initializer) is javalang.tree.Literal:
@@ -106,7 +106,7 @@ class Test {
     )
     results = set()
 
-    processor.variableLookupTable.update(processor._preprocess_java_literals(tree))
+    processor.variable_lookup_table.update(processor._preprocess_java_literals(tree))
 
     for path, node in tree.filter(javalang.tree.VariableDeclarator):
         if type(node.initializer) is javalang.tree.BinaryOperation:
@@ -128,7 +128,7 @@ class Test {
     )
     results = set()
 
-    processor.variableLookupTable.update(processor._preprocess_java_literals(tree))
+    processor.variable_lookup_table.update(processor._preprocess_java_literals(tree))
 
     for path, node in tree.filter(javalang.tree.VariableDeclarator):
         if type(node.initializer) is javalang.tree.BinaryOperation:
@@ -182,7 +182,7 @@ class Test {
 }
     """
     )
-    processor.variableLookupTable.update(processor._preprocess_java_literals(tree))
+    processor.variable_lookup_table.update(processor._preprocess_java_literals(tree))
     results = processor._preprocess_java_variables(tree)
 
     assert (
@@ -238,19 +238,19 @@ class Test {
     """
     )
     # Grab the method and filter from there
-    methodPath, methodNode = list(tree.filter(javalang.tree.MethodDeclaration))[0]
+    method_path, method_node = list(tree.filter(javalang.tree.MethodDeclaration))[0]
 
     # Test if it works with tree
-    results = processor.filter_on_path(methodNode, javalang.tree.VariableDeclarator, tree)
+    results = processor.filter_on_path(method_node, javalang.tree.VariableDeclarator, tree)
     assert len(results) == 1
 
     # Test if it works without tree with relative paths
-    results = processor.filter_on_path(methodNode, javalang.tree.VariableDeclarator)
+    results = processor.filter_on_path(method_node, javalang.tree.VariableDeclarator)
     assert len(results) == 1
 
 def test_get_jsp_params(processor):
-    westFile = "WEB-INF/jsp/controllers/smvc004-05.jsp"
-    params = processor.get_jsp_params(westFile)
+    west_file = "WEB-INF/jsp/controllers/smvc004-05.jsp"
+    params = processor.get_jsp_params(west_file)
     assert params == ['k']
 
 def test_resolve_member_reference(processor):
@@ -266,7 +266,7 @@ class Test {
 }
     """
     )
-    processor.variableLookupTable.update(processor._preprocess_java_literals(tree))
+    processor.variable_lookup_table.update(processor._preprocess_java_literals(tree))
 
     member = list(filter(lambda x: type(x[1]) is javalang.tree.MemberReference, tree))[0][1]
 
@@ -275,13 +275,13 @@ class Test {
     assert value == "MyString"
 
 def test_find_java_web_context_found(processor):
-    webContextDir = processor._find_java_web_context()
-    assert webContextDir == "java/src/main/webapp/"
+    web_context_dir = processor._find_java_web_context()
+    assert web_context_dir == "java/src/main/webapp/"
 
 def test_find_java_web_context_not_found(processor, mocker):
     mocked_glob = mocker.patch('glob.glob', return_value=['test1', 'test2'])
-    webContextDir = processor._find_java_web_context()
-    assert webContextDir == "web/"
+    web_context_dir = processor._find_java_web_context()
+    assert web_context_dir == "web/"
 
 def test_find_code_base_dir(processor, mocker):
     mocker.patch('glob.glob', return_value=['java/src/main/java/com/indeed/security/wes/MyClass.java'])

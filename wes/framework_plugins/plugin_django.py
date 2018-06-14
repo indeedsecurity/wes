@@ -7,8 +7,8 @@ from typed_ast import ast3
 import sys
 import os
 from copy import copy
-wesDir = os.path.realpath(os.path.join(__file__, "..", ".."))
-sys.path.append(wesDir)
+wes_dir = os.path.realpath(os.path.join(__file__, "..", ".."))
+sys.path.append(wes_dir)
 from wes.framework_plugins.common import Framework
 
 # configure logging
@@ -16,12 +16,12 @@ logger = logging.getLogger("Django")
 
 
 class CustomFramework(Framework):
-    def __init__(self, workingDir, processors):
-        self.workingDir = workingDir
-        self.tempRecursedEndpoints = []
+    def __init__(self, working_dir, processors):
+        self.working_dir = working_dir
+        self.temp_recursed_endpoints = []
         self.endpoints = []
         self.processor = processors['python']
-        self.projectRootDir = self._find_project_root()
+        self.project_root_dir = self._find_project_root()
 
     def identify(self):
         """
@@ -29,8 +29,8 @@ class CustomFramework(Framework):
         application and whether it should be processed by this plugin.
         """
         # Find all *.py files in the project
-        globPath = os.path.join(self.workingDir, '**', '*.py')
-        files = glob.glob(globPath, recursive=True)
+        glob_path = os.path.join(self.working_dir, '**', '*.py')
+        files = glob.glob(glob_path, recursive=True)
 
         # if there aren't any *.py files then it's not a django project
         if not files:
@@ -47,23 +47,23 @@ class CustomFramework(Framework):
 
     def find_endpoints(self):
         # Look for the root urls.py file
-        rootUrlsFilePath = self._find_root_urls_file()
+        root_urls_file_path = self._find_root_urls_file()
 
         # Find all url() calls in the file
-        urlCalls = self._find_all_url_calls(rootUrlsFilePath)
+        url_calls = self._find_all_url_calls(root_urls_file_path)
 
         # Loop through url calls and find all the referenced calls
-        for call in urlCalls:
-            self._resolve_url_call_to_views(call, rootUrlsFilePath)
+        for call in url_calls:
+            self._resolve_url_call_to_views(call, root_urls_file_path)
 
-        # Flatten the self.tempRecursedEndpoints list
-        self.endpoints = self._flatten_recursed_endpoints(self.tempRecursedEndpoints)
+        # Flatten the self.temp_recursed_endpoints list
+        self.endpoints = self._flatten_recursed_endpoints(self.temp_recursed_endpoints)
 
         # Find view file location and context
         self.endpoints = self._find_view_context(self.endpoints)
 
         # Remove endpoints we couldn't locate the view to
-        self.endpoints = list(filter(lambda x: x['viewFilepath'], self.endpoints))
+        self.endpoints = list(filter(lambda x: x['view_filepath'], self.endpoints))
 
         # Find parameters
         self.endpoints = self._find_parameters(self.endpoints)
@@ -77,16 +77,16 @@ class CustomFramework(Framework):
         # clean endpoint fields
         return self._clean_endpoints(self.endpoints)
 
-    def _resolve_url_call_to_views(self, urlCall, filepath, parent=None):
-        if type(urlCall) is _ast3.Call and urlCall.func.id == 'url':
+    def _resolve_url_call_to_views(self, url_call, filepath, parent=None):
+        if type(url_call) is _ast3.Call and url_call.func.id == 'url':
             # Lets parse the args out of the url(args) call
-            endpoint = self.processor.parse_python_method_args(urlCall, ['regex', 'view', 'kwargs', 'name'])
+            endpoint = self.processor.parse_python_method_args(url_call, ['regex', 'view', 'kwargs', 'name'])
 
             # Add parent to list
             endpoint['parent'] = parent
 
             # Add file location the url was found so that the view path can be resolved
-            endpoint['locationFound'] = filepath
+            endpoint['location_found'] = filepath
 
             # Make sure we get the required arguments
             if 'regex' in endpoint and 'view' in endpoint:
@@ -97,12 +97,12 @@ class CustomFramework(Framework):
 
                     # if the url() method contains a include() then lets find the url() calls within that file
                     # Construct path to referenced module
-                    includeParams = self.processor.parse_python_method_args(endpoint['view'], ['module', 'namespace', 'app_name'])
+                    include_params = self.processor.parse_python_method_args(endpoint['view'], ['module', 'namespace', 'app_name'])
 
                     # this accounts for the following: include("module.view")
-                    if type(includeParams['module']) not in [_ast3.Attribute, _ast3.List, _ast3.Name]:
-                        moduleLocalPath = includeParams['module'].replace('.', '/') + '.py'
-                        fp = os.path.join(self.workingDir,         self.projectRootDir, moduleLocalPath)
+                    if type(include_params['module']) not in [_ast3.Attribute, _ast3.List, _ast3.Name]:
+                        module_local_path = include_params['module'].replace('.', '/') + '.py'
+                        fp = os.path.join(self.working_dir, self.project_root_dir, module_local_path)
 
                         # Find all urls in referenced module
                         calls = self._find_all_url_calls(self.processor.strip_work_dir(fp))
@@ -111,25 +111,25 @@ class CustomFramework(Framework):
                             self._resolve_url_call_to_views(call, self.processor.strip_work_dir(fp), endpoint)
 
                     # this accounts for the following: include([url(),url()])
-                    elif type(includeParams['module']) is _ast3.List:
-                        for elem in includeParams['module'].elts:
+                    elif type(include_params['module']) is _ast3.List:
+                        for elem in include_params['module'].elts:
                             if type(elem) is _ast3.Call and elem.func.id == "url":
-                                filepath = filepath if self.workingDir not in filepath else self.processor.strip_work_dir(filepath)
+                                filepath = filepath if self.working_dir not in filepath else self.processor.strip_work_dir(filepath)
                                 self._resolve_url_call_to_views(elem, filepath, endpoint)
 
                     # this accounts for the following: include(module.view) Notice no ""
-                    elif type(includeParams['module']) is _ast3.Attribute:
+                    elif type(include_params['module']) is _ast3.Attribute:
                         # TODO
                         pass
 
                     # this accounts for the following: include(name) when imported as "from x import y as name"
-                    elif type(includeParams['module']) is _ast3.Name:
+                    elif type(include_params['module']) is _ast3.Name:
                         # TODO
                         pass
                 else:
                     # This url() call doesn't contain an include() so we can
                     # add endpoint mapping to list for more processing later
-                    self.tempRecursedEndpoints.append(endpoint)
+                    self.temp_recursed_endpoints.append(endpoint)
 
             else:
                 logger.warning("It looks like there was a faulty url() call")
@@ -137,57 +137,57 @@ class CustomFramework(Framework):
     def _find_project_root(self):
         # locate where manage.py is located in the project and assume that's the root of the project's code
         try:
-            managePath = list(filter(lambda x: 'manage.py' in x[0], self.processor.pythonFileAsts.items()))[0]
+            manage_path = list(filter(lambda x: 'manage.py' in x[0], self.processor.python_file_asts.items()))[0]
         except IndexError:
             # This project isn't a python project
             return ''
 
-        return managePath[0].replace('manage.py', '')
+        return manage_path[0].replace('manage.py', '')
 
     def _find_root_urls_file(self):
         # Attempt to find setting folder or settings.py
-        managePath = os.path.join(self.projectRootDir, 'manage.py')
-        manageAST = self.processor.pythonFileAsts[managePath]
-        settingsModule = None
-        for call in self.processor.filter_ast(manageAST, _ast3.Call):
+        manage_path = os.path.join(self.project_root_dir, 'manage.py')
+        manage_ast = self.processor.python_file_asts[manage_path]
+        settings_module = None
+        for call in self.processor.filter_ast(manage_ast, _ast3.Call):
             if len(call.args) == 2 and ast3.literal_eval(call.args[0]) == 'DJANGO_SETTINGS_MODULE':
-                settingsModule = ast3.literal_eval(call.args[1])
+                settings_module = ast3.literal_eval(call.args[1])
                 break
 
-        if settingsModule:
-            settingModule = os.path.join(self.projectRootDir, settingsModule.replace('.', '/'))
-            if settingModule + '.py' in self.processor.pythonFileAsts:
-                myAst = self.processor.pythonFileAsts[settingModule + '.py']
-                for assign in self.processor.filter_ast(myAst, _ast3.Assign):
+        if settings_module:
+            setting_module = os.path.join(self.project_root_dir, settings_module.replace('.', '/'))
+            if setting_module + '.py' in self.processor.python_file_asts:
+                my_ast = self.processor.python_file_asts[setting_module + '.py']
+                for assign in self.processor.filter_ast(my_ast, _ast3.Assign):
                     # parse through AST of settings.py
                     if len(assign.targets) == 1 and assign.targets[0].id == 'ROOT_URLCONF':
-                        rootUrls = os.path.join(self.projectRootDir, ast3.literal_eval(assign.value).replace('.', '/')) + '.py'
-                        if rootUrls in self.processor.pythonFileAsts:
-                            return rootUrls
+                        root_urls = os.path.join(self.project_root_dir, ast3.literal_eval(assign.value).replace('.', '/')) + '.py'
+                        if root_urls in self.processor.pythonFileAsts:
+                            return root_urls
 
-            elif os.path.isdir(settingModule):
-                settingsFiles = list(filter(lambda x: settingModule in x, self.processor.pythonFileAsts.keys()))
-                for sf in settingsFiles:
-                    myAst = self.processor.pythonFileAsts[sf]
-                    for assign in self.processor.filter_ast(myAst, _ast3.Assign):
+            elif os.path.isdir(setting_module):
+                settings_files = list(filter(lambda x: setting_module in x, self.processor.pythonFileAsts.keys()))
+                for sf in settings_files:
+                    my_ast = self.processor.python_file_asts[sf]
+                    for assign in self.processor.filter_ast(my_ast, _ast3.Assign):
                         # parse through AST of settings.py
                         if len(assign.targets) == 1 and assign.targets[0].id == 'ROOT_URLCONF':
-                            rootUrls = os.path.join(self.projectRootDir,
+                            root_urls = os.path.join(self.project_root_dir,
                                                     ast3.literal_eval(assign.value).replace('.', '/')) + '.py'
-                            if rootUrls in self.processor.pythonFileAsts:
-                                return rootUrls
+                            if root_urls in self.processor.python_file_asts:
+                                return root_urls
 
-        urlFile = None
-        urlFiles = list(filter(lambda x: 'urls.py' in x, self.processor.pythonFileAsts.keys()))
-        for uf in urlFiles:
-            if urlFile is None or uf.count('/') < urlFile.count('/'):
-                urlFile = uf
+        url_file = None
+        url_files = list(filter(lambda x: 'urls.py' in x, self.processor.python_file_asts.keys()))
+        for uf in url_files:
+            if url_file is None or uf.count('/') < url_file.count('/'):
+                url_file = uf
 
-        return urlFile
+        return url_file
 
     def _find_all_url_calls(self, filepath):
         try:
-            root = self.processor.pythonFileAsts[filepath]
+            root = self.processor.python_file_asts[filepath]
         except KeyError as e:
             logger.warning("Couldn't find this file. Possibly an external library: %s", e)
             return []
@@ -196,37 +196,37 @@ class CustomFramework(Framework):
         calls = self.processor.filter_ast(root, _ast3.Call)
 
         # Only care about url() calls
-        urlCalls = list(filter(lambda x: hasattr(x.func, 'id') and x.func.id == "url", calls))
+        url_calls = list(filter(lambda x: hasattr(x.func, 'id') and x.func.id == "url", calls))
 
-        return urlCalls
+        return url_calls
 
-    def _flatten_recursed_endpoints(self, endpointsList):
-        resultingEps = []
-        for ep in endpointsList:
+    def _flatten_recursed_endpoints(self, endpoints_list):
+        resulting_eps = []
+        for ep in endpoints_list:
             view = ep['view']
             path = []
-            nonStringEncountered = False
+            non_string_encountered = False
 
             # TODO: Process BinaryOperators and MemberReferences in regex
             if type(ep['regex']) is not str:
-                nonStringEncountered = True
+                non_string_encountered = True
             path.append(ep['regex'])
 
-            currentParent = None if not ep['parent'] else ep['parent']
+            current_parent = None if not ep['parent'] else ep['parent']
 
-            while currentParent:
+            while current_parent:
                 # TODO: Process BinaryOperators and MemberReferences in regex
-                if type(currentParent['regex']) is not str:
-                    nonStringEncountered = True
+                if type(current_parent['regex']) is not str:
+                    non_string_encountered = True
 
                 # Add to front of list because it's the parent
-                path.insert(0, currentParent['regex'])
+                path.insert(0, current_parent['regex'])
 
-                currentParent = currentParent['parent']
+                current_parent = current_parent['parent']
 
-            # Don't continue processing this ep if nonStringEncountered in regex
+            # Don't continue processing this ep if non_string_encountered in regex
             # TODO: This will eventually be removed because we will be able to process them
-            if nonStringEncountered:
+            if non_string_encountered:
                 continue
 
             path = self._combine_regex_url_patterns(path)
@@ -239,215 +239,215 @@ class CustomFramework(Framework):
             if path.endswith('?'):
                 path = path[:-1]
 
-            resultingEps.append({
+            resulting_eps.append({
                 'endpoints': set([path]),
-                'viewCall': view,
-                'locationFound': ep['locationFound']
+                'view_call': view,
+                'location_found': ep['location_found']
             })
 
-        return resultingEps
+        return resulting_eps
 
-    def _combine_regex_url_patterns(self, listOfRegex):
-        return ("/" + "/".join(listOfRegex).replace('^', '').replace('$', '')).replace('//', '/')
+    def _combine_regex_url_patterns(self, list_of_regex):
+        return ("/" + "/".join(list_of_regex).replace('^', '').replace('$', '')).replace('//', '/')
 
     def _find_view_context(self, endpoints):
         for ep in range(len(endpoints)):
-            viewCall = endpoints[ep]['viewCall']
-            locationFound = endpoints[ep]['locationFound']
-            baseModulePath = locationFound.split('/', 1)[0] + '/'
+            view_call = endpoints[ep]['view_call']
+            location_found = endpoints[ep]['location_found']
+            base_module_path = location_found.split('/', 1)[0] + '/'
             view = {
                 'name': None,
                 'module': [],
-                'moduleFilepath': None,
-                'declarationLoc': locationFound
+                'module_filepath': None,
+                'declaration_loc': location_found
             }
 
             # Let's resolve views that just strings
-            if type(viewCall) is str:
-                view['name'] = viewCall.split('.')[-1]
-                view['module'] += [var for var in baseModulePath.split('/') if var]
-                view['module'] += viewCall.split('.')[:-1]
-                possiblePath = '/'.join(view['module']) + '/' + view['name'] + '.py'
-                if possiblePath in self.processor.pythonFileAsts:
-                    view['moduleFilepath'] = possiblePath
+            if type(view_call) is str:
+                view['name'] = view_call.split('.')[-1]
+                view['module'] += [var for var in base_module_path.split('/') if var]
+                view['module'] += view_call.split('.')[:-1]
+                possible_path = '/'.join(view['module']) + '/' + view['name'] + '.py'
+                if possible_path in self.processor.python_file_asts:
+                    view['module_filepath'] = possible_path
                 else:
-                    possiblePath = '/'.join(view['module']) + '.py'
-                    if possiblePath in self.processor.pythonFileAsts:
-                        view['moduleFilepath'] = possiblePath
+                    possible_path = '/'.join(view['module']) + '.py'
+                    if possible_path in self.processor.python_file_asts:
+                        view['module_filepath'] = possible_path
             # Now let's handle everything that's not a string
             else:
-                tempViewName = []
-                for x in ast3.walk(viewCall):
+                temp_view_name = []
+                for x in ast3.walk(view_call):
                     if hasattr(x, 'id'):
-                        tempViewName.append(x.id)
+                        temp_view_name.append(x.id)
                     elif hasattr(x, 'attr'):
-                        tempViewName.append(x.attr)
+                        temp_view_name.append(x.attr)
 
                 # Remove as_view() from name
-                if 'as_view' in tempViewName:
-                    tempViewName.remove('as_view')
+                if 'as_view' in temp_view_name:
+                    temp_view_name.remove('as_view')
 
                 # Lets reverse the view name to be in the right order
-                tempViewName = list(reversed(tempViewName))
+                temp_view_name = list(reversed(temp_view_name))
 
                 # load the value into our dictionary
-                view['name'] = tempViewName[1:] if len(tempViewName) > 1 else tempViewName[0]
-                view['module'] = tempViewName[0]
+                view['name'] = temp_view_name[1:] if len(temp_view_name) > 1 else temp_view_name[0]
+                view['module'] = temp_view_name[0]
 
                 # Find the module that contains the view
-                myAst = self.processor.pythonFileAsts[locationFound]  # load the ast of where it was found
+                my_ast = self.processor.python_file_asts[location_found]  # load the ast of where it was found
 
                 # Search all the imports for view module
-                imports = self.processor.filter_ast(myAst, _ast3.Import)
+                imports = self.processor.filter_ast(my_ast, _ast3.Import)
                 for i in imports:
                     for n in i.names:
                         if n.name == view['module']:
-                            view['moduleFilepath'] = self._find_module_path_from_import(locationFound,
-                                                                                        i,
-                                                                                        view['module'])
+                            view['module_filepath'] = self._find_module_path_from_import(location_found,
+                                                                                         i,
+                                                                                         view['module'])
 
                         elif n.asname == view['module']:
                             view['module'] = n.name
                             view['name'][0] = n.name  # rename to real name
-                            view['moduleFilepath'] = self._find_module_path_from_import(locationFound,
-                                                                                        i,
-                                                                                        view['module'])
+                            view['module_filepath'] = self._find_module_path_from_import(location_found,
+                                                                                         i,
+                                                                                         view['module'])
 
                 # Search all import froms for view module
-                importFroms = self.processor.filter_ast(myAst, _ast3.ImportFrom)
-                asteriskImports = []
-                for i in importFroms:
+                import_froms = self.processor.filter_ast(my_ast, _ast3.ImportFrom)
+                asterisk_imports = []
+                for i in import_froms:
                     for n in i.names:
                         if n.name == view['module']:
                             # we found the import let's see if we can find the file path to the module
-                            view['moduleFilepath'] = self._find_module_path_from_import(locationFound,
-                                                                                        i,
-                                                                                        view['module'])
+                            view['module_filepath'] = self._find_module_path_from_import(location_found,
+                                                                                         i,
+                                                                                         view['module'])
                         elif n.asname == view['module']:
                             # we found the import let's see if we can find the file path to the module
                             view['module'] = n.name
                             view['name'][0] = n.name  # rename to real name
-                            view['moduleFilepath'] = self._find_module_path_from_import(locationFound,
-                                                                                        i,
-                                                                                        view['module'])
+                            view['module_filepath'] = self._find_module_path_from_import(location_found,
+                                                                                         i,
+                                                                                         view['module'])
                         elif n.name == "*":
                             # Keep track of the from x import *
-                            asteriskImports.append(i)
+                            asterisk_imports.append(i)
 
                 # Check if the module is imported with an *
-                if view['moduleFilepath'] is None:
-                    # check if we can find the modules in the asteriskImports
-                    for i in asteriskImports:
-                        path = self._find_module_path_from_import(locationFound, i, view['module'])
+                if view['module_filepath'] is None:
+                    # check if we can find the modules in the asterisk_imports
+                    for i in asterisk_imports:
+                        path = self._find_module_path_from_import(location_found, i, view['module'])
                         if path:
-                            view['moduleFilepath'] = path
+                            view['module_filepath'] = path
                             break
-            endpoints[ep]['viewFilepath'] = view['moduleFilepath']
-            endpoints[ep]['viewName'] = view['name'] if type(view['name']) is str else '.'.join(view['name'])
+            endpoints[ep]['view_filepath'] = view['module_filepath']
+            endpoints[ep]['view_name'] = view['name'] if type(view['name']) is str else '.'.join(view['name'])
         return endpoints
 
-    def _find_module_path_from_import(self, locationFound, importObject, name):
+    def _find_module_path_from_import(self, location_found, import_object, name):
         """
         This method resolves an import to a file path
-        :param locationFound: The path to the file that contains the import
-        :param importObject: The import object
+        :param location_found: The path to the file that contains the import
+        :param import_object: The import object
         :param name: The name of the object/method/class you want to import
         :return: The file path to the import or None if it couldn't be found
         """
         # First we have to check if we're dealing with a * import
-        if importObject.names[0] != '*':
-            if isinstance(importObject, _ast3.Import):
+        if import_object.names[0] != '*':
+            if isinstance(import_object, _ast3.Import):
                 # Root path is current directory
-                rootPath = locationFound[:locationFound.rfind('/') + 1]
-                possiblePath = rootPath + name.replace('.', '/') + '.py'
-                if possiblePath in self.processor.pythonFileAsts:
-                    return possiblePath
-            elif isinstance(importObject, _ast3.ImportFrom):
+                root_path = location_found[:location_found.rfind('/') + 1]
+                possible_path = root_path + name.replace('.', '/') + '.py'
+                if possible_path in self.processor.python_file_asts:
+                    return possible_path
+            elif isinstance(import_object, _ast3.ImportFrom):
                 # Root path is module directory or current directory depending on level
-                modulePath = importObject.module.replace('.', '/') + '/' if importObject.module else ''
-                if importObject.level > 0:
-                    rootPath = locationFound[:locationFound.rfind('/') + 1]
-                elif importObject.level == 0 and modulePath not in locationFound:
-                    rootPath = locationFound[:locationFound.rfind('/') + 1]
-                elif importObject.level == 0 and modulePath in locationFound:
-                    rootPath = locationFound[:locationFound.find(modulePath)]
+                module_path = import_object.module.replace('.', '/') + '/' if import_object.module else ''
+                if import_object.level > 0:
+                    root_path = location_found[:location_found.rfind('/') + 1]
+                elif import_object.level == 0 and module_path not in location_found:
+                    root_path = location_found[:location_found.rfind('/') + 1]
+                elif import_object.level == 0 and module_path in location_found:
+                    root_path = location_found[:location_found.find(module_path)]
                 else:
                     logger.warning("This is most likely a view from an external library: %s", name)
                     return None
 
                 # Try module/name.py, then module.py
-                possiblePath = rootPath + modulePath + name + '.py'
-                if possiblePath in self.processor.pythonFileAsts:
-                    return possiblePath
+                possible_path = root_path + module_path + name + '.py'
+                if possible_path in self.processor.python_file_asts:
+                    return possible_path
                 else:
-                    possiblePath = rootPath + modulePath.rstrip('/') + '.py'
-                    if possiblePath in self.processor.pythonFileAsts:
-                        return possiblePath
+                    possible_path = root_path + module_path.rstrip('/') + '.py'
+                    if possible_path in self.processor.python_file_asts:
+                        return possible_path
             else:
                 logger.warning("This is most likely a view from an external library: %s", name)
                 return None
         else:
             # This is an asterisks import so we'll have to search the module we find
-            if isinstance(importObject, _ast3.ImportFrom) and importObject.level > 0:
-                possiblePath = "/".join(locationFound.split('/')[:-importObject.level]) + "/"
-                possiblePath += importObject.module.replace('.', '/') + "/"
-                possiblePath += name + ".py"
-                if possiblePath in self.processor.pythonFileAsts:
+            if isinstance(import_object, _ast3.ImportFrom) and import_object.level > 0:
+                possible_path = "/".join(location_found.split('/')[:-import_object.level]) + "/"
+                possible_path += import_object.module.replace('.', '/') + "/"
+                possible_path += name + ".py"
+                if possible_path in self.processor.python_file_asts:
                     # We found the file for the module, let's see if it contains our import
-                    tempAst = self.processor.pythonFileAsts[possiblePath]
-                    for x in ast3.walk(tempAst):
+                    temp_ast = self.processor.python_file_asts[possible_path]
+                    for x in ast3.walk(temp_ast):
                         if hasattr(x, 'name') and x.name == x['name'][0]:
-                            return possiblePath
+                            return possible_path
                     return None
                 else:
-                    possiblePath = "/".join(locationFound.split('/')[:-importObject.level]) + "/"
-                    possiblePath += importObject.module.replace('.', '/') + ".py"
-                    if possiblePath in self.processor.pythonFileAsts:
+                    possible_path = "/".join(location_found.split('/')[:-import_object.level]) + "/"
+                    possible_path += import_object.module.replace('.', '/') + ".py"
+                    if possible_path in self.processor.python_file_asts:
                         # We found the file for the module, let's see if it contains our import
-                        tempAst = self.processor.pythonFileAsts[possiblePath]
-                        for x in ast3.walk(tempAst):
+                        temp_ast = self.processor.python_file_asts[possible_path]
+                        for x in ast3.walk(temp_ast):
                             if hasattr(x, 'name') and x.name == x['name'][0]:
-                                return possiblePath
+                                return possible_path
                         return None
             else:
-                logger.warning("This is most likely an import from an external library: %s", importObject.module)
+                logger.warning("This is most likely an import from an external library: %s", import_object.module)
                 return None
 
     def _find_parameters(self, endpoints):
         for i in range(len(endpoints)):
             # Find out if the view is a class or a method/function
-            myAst = self.processor.pythonFileAsts[endpoints[i]['viewFilepath']]
-            viewContext = None
-            for x in ast3.walk(myAst):
-                if hasattr(x, 'name') and x.name == endpoints[i]['viewName']:
-                    viewContext = x
+            my_ast = self.processor.python_file_asts[endpoints[i]['view_filepath']]
+            view_context = None
+            for x in ast3.walk(my_ast):
+                if hasattr(x, 'name') and x.name == endpoints[i]['view_name']:
+                    view_context = x
                     break
 
-            # Let's add the viewContext to our endpoints dictionary
-            endpoints[i]['viewContext'] = viewContext
+            # Let's add the view_context to our endpoints dictionary
+            endpoints[i]['view_context'] = view_context
 
-            renderMethods = []
+            render_methods = []
 
             method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace', 'form_valid']
 
             # Find all the methods/function we have to process
-            if type(viewContext) is _ast3.ClassDef:
-                for b in viewContext.body:
+            if type(view_context) is _ast3.ClassDef:
+                for b in view_context.body:
                     if type(b) is _ast3.FunctionDef and b.name in method_names:
-                        renderMethods.append(b)
-            elif type(viewContext) is _ast3.FunctionDef:
-                renderMethods.append(viewContext)
+                        render_methods.append(b)
+            elif type(view_context) is _ast3.FunctionDef:
+                render_methods.append(view_context)
 
             params = []
 
-            for method in renderMethods:
+            for method in render_methods:
                 # Find the name of the request object within the method
-                reqName = None
+                req_name = None
                 if method.args.args[0].arg != 'self':
-                    reqName = method.args.args[0].arg
+                    req_name = method.args.args[0].arg
                 else:
                     if len(method.args.args) > 1:
-                        reqName = method.args.args[1].arg
+                        req_name = method.args.args[1].arg
                     else:
                         pass
 
@@ -456,8 +456,8 @@ class CustomFramework(Framework):
                 # Now lets parse out the params
 
                 # This section processes the following:
-                # <reqName>.cleaned_data['first_name']
-                # <reqName>.<method_in_caps>["id"]
+                # <req_name>.cleaned_data['first_name']
+                # <req_name>.<method_in_caps>["id"]
                 # self.request.<method_in_caps>["id"]
                 subscripts = self.processor.filter_ast(method, _ast3.Subscript)
                 for subscript in subscripts:
@@ -466,31 +466,31 @@ class CustomFramework(Framework):
                             type(subscript.value.value) is _ast3.Name and
                             subscript.value.value.id):
                         # This processes the following:
-                        # <reqName>.cleaned_data['first_name']
+                        # <req_name>.cleaned_data['first_name']
                         value = ast3.literal_eval(subscript.slice.value)
                         if type(value) is bytes:
                             value = value.decode("utf-8")  # Accounting for weird bug in typed-ast library
-                        paramDict = {
+                        param_dict = {
                             'name': value,
-                            'filepath': endpoints[i]['viewFilepath'],
-                            'lineNumber': subscript.lineno
+                            'filepath': endpoints[i]['view_filepath'],
+                            'line_number': subscript.lineno
                         }
-                        params.append(paramDict)
+                        params.append(param_dict)
                     elif (type(subscript.value) is _ast3.Attribute and
                             subscript.value.attr in http_methods and
                             type(subscript.value.value) is _ast3.Name and
-                            subscript.value.value.id == reqName):
+                            subscript.value.value.id == req_name):
                         # This processes the following:
-                        # <reqName>.<method_in_caps>["id"]
+                        # <req_name>.<method_in_caps>["id"]
                         value = ast3.literal_eval(subscript.slice.value)
                         if type(value) is bytes:
                             value = value.decode("utf-8")  # Accounting for weird bug in typed-ast library
-                        paramDict = {
+                        param_dict = {
                             'name': value,
-                            'filepath': endpoints[i]['viewFilepath'],
-                            'lineNumber': subscript.lineno
+                            'filepath': endpoints[i]['view_filepath'],
+                            'line_number': subscript.lineno
                         }
-                        params.append(paramDict)
+                        params.append(param_dict)
                     elif (type(subscript.value) is _ast3.Attribute and
                             subscript.value.attr in http_methods and
                             type(subscript.value.value) is _ast3.Attribute and
@@ -502,16 +502,16 @@ class CustomFramework(Framework):
                         value = ast3.literal_eval(subscript.slice.value)
                         if type(value) is bytes:
                             value = value.decode("utf-8")  # Accounting for weird bug in typed-ast library
-                        paramDict = {
+                        param_dict = {
                             'name': value,
-                            'filepath': endpoints[i]['viewFilepath'],
-                            'lineNumber': subscript.lineno
+                            'filepath': endpoints[i]['view_filepath'],
+                            'line_number': subscript.lineno
                         }
-                        params.append(paramDict)
+                        params.append(param_dict)
 
                 # This section processes the following:
-                # <reqName>.<method_in_caps>.get("paramName", None)
-                # self.request.<method_in_caps>.get("paramName", None)
+                # <req_name>.<method_in_caps>.get("param_name", None)
+                # self.request.<method_in_caps>.get("param_name", None)
                 calls = self.processor.filter_ast(method, _ast3.Call)
                 for call in calls:
                     if (type(call.func) is _ast3.Attribute and
@@ -519,33 +519,33 @@ class CustomFramework(Framework):
                         if (type(call.func.value) is _ast3.Attribute and
                                 call.func.value.attr in http_methods):
                             if (type(call.func.value.value) is _ast3.Name and
-                                    call.func.value.value.id == reqName):
+                                    call.func.value.value.id == req_name):
                                 # This processes the following:
-                                # <reqName>.<method_in_caps>.get("paramName", None)
+                                # <req_name>.<method_in_caps>.get("param_name", None)
                                 args = self.processor.parse_python_method_args(call, ['key', 'default'])
                                 if isinstance(args['key'], (bytes, str)):
                                     value = args['key'].decode('utf-8') if type(args['key']) is bytes else args['key']
-                                    paramDict = {
+                                    param_dict = {
                                         'name': value,
-                                        'filepath': endpoints[i]['viewFilepath'],
-                                        'lineNumber': call.lineno
+                                        'filepath': endpoints[i]['view_filepath'],
+                                        'line_number': call.lineno
                                     }
-                                    params.append(paramDict)
+                                    params.append(param_dict)
                             elif (type(call.func.value.value) is _ast3.Attribute and
                                     call.func.value.value.attr == 'request' and
                                     type(call.func.value.value.value) is _ast3.Name and
                                     call.func.value.value.value.id == 'self'):
                                 # This processes the following:
-                                # self.request.<method_in_caps>.get("paramName", None)
+                                # self.request.<method_in_caps>.get("param_name", None)
                                 args = self.processor.parse_python_method_args(call, ['key', 'default'])
                                 if isinstance(args['key'], (bytes, str)):
                                     value = args['key'].decode('utf-8') if type(args['key']) is bytes else args['key']
-                                    paramDict = {
+                                    param_dict = {
                                         'name': value,
-                                        'filepath': endpoints[i]['viewFilepath'],
-                                        'lineNumber': call.lineno
+                                        'filepath': endpoints[i]['view_filepath'],
+                                        'line_number': call.lineno
                                     }
-                                    params.append(paramDict)
+                                    params.append(param_dict)
 
                 # TODO: find the templates and see if they pull params out of the request object within the template
 
@@ -554,13 +554,13 @@ class CustomFramework(Framework):
 
     def _find_methods(self, endpoints):
         for i in range(len(endpoints)):
-            viewContext = endpoints[i]['viewContext']
+            view_context = endpoints[i]['view_context']
             methods = set()
 
             # Find out if the view is a class or a method/function
-            if type(viewContext) is _ast3.ClassDef:
+            if type(view_context) is _ast3.ClassDef:
                 # find all class functions/methods
-                functions = list(filter(lambda x: type(x) is _ast3.FunctionDef, viewContext.body))
+                functions = list(filter(lambda x: type(x) is _ast3.FunctionDef, view_context.body))
                 for func in functions:
                     if func.name == 'get':
                         methods.add('GET')
@@ -581,10 +581,10 @@ class CustomFramework(Framework):
                     elif func.name == 'form_valid':
                         methods.add('POST')
 
-            elif type(viewContext) is _ast3.FunctionDef:
+            elif type(view_context) is _ast3.FunctionDef:
                 # Try to find comparators within the function
                 # ex: if request.method == 'METHOD':
-                compares = self.processor.filter_ast(viewContext, _ast3.Compare)
+                compares = self.processor.filter_ast(view_context, _ast3.Compare)
                 for compare in compares:
                     if (type(compare.left) is _ast3.Attribute and
                             compare.left.attr == 'method' and
@@ -597,37 +597,37 @@ class CustomFramework(Framework):
         return endpoints
 
     def _add_line_numbers(self, endpoints):
-        newEndpoints = []
+        new_endpoints = []
 
         for ep in endpoints:
             if 'methods' in ep and ep['methods']:
                 for method in ep['methods']:
-                    tempEp = copy(ep)
-                    tempEp['methods'] = [method]
-                    tempEp['lineNumber'] = ep['viewContext'].lineno
-                    newEndpoints.append(tempEp)
+                    temp_ep = copy(ep)
+                    temp_ep['methods'] = [method]
+                    temp_ep['line_number'] = ep['view_context'].lineno
+                    new_endpoints.append(temp_ep)
             else:
-                tempEp = copy(ep)
+                temp_ep = copy(ep)
                 try:
-                    tempEp['lineNumber'] = ep['viewContext'].lineno
+                    temp_ep['line_number'] = ep['view_context'].lineno
                 except AttributeError:
-                    tempEp['lineNumber'] = None
+                    temp_ep['line_number'] = None
 
-                newEndpoints.append(tempEp)
+                new_endpoints.append(temp_ep)
 
-        return newEndpoints
+        return new_endpoints
 
     def _clean_endpoints(self, endpoints):
-        cleanEndpoints = []
+        clean_endpoints = []
         for ep in endpoints:
-            cleanEndpoint = {}
+            clean_endpoint = {}
             for k, v in ep.items():
-                if k == 'viewFilepath':
-                    cleanEndpoint['filepath'] = v
-                if k in ['endpoints', 'params', 'methods', 'templates', 'lineNumber']:
-                    cleanEndpoint[k] = v
+                if k == 'view_filepath':
+                    clean_endpoint['filepath'] = v
+                if k in ['endpoints', 'params', 'methods', 'templates', 'line_number']:
+                    clean_endpoint[k] = v
             # TODO: This is just a simple fix to get integration tests to run correctly without pulling out the template right now
-            cleanEndpoint['templates'] = set()
-            if 'endpoints' in cleanEndpoint:
-                cleanEndpoints.append(cleanEndpoint)
-        return cleanEndpoints
+            clean_endpoint['templates'] = set()
+            if 'endpoints' in clean_endpoint:
+                clean_endpoints.append(clean_endpoint)
+        return clean_endpoints

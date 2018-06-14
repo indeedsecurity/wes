@@ -6,8 +6,8 @@ import logging
 # Add to wes to the sys path
 import sys
 import os
-wesDir = os.path.realpath(os.path.join(__file__, "..", ".."))
-sys.path.append(wesDir)
+wes_dir = os.path.realpath(os.path.join(__file__, "..", ".."))
+sys.path.append(wes_dir)
 from wes.framework_plugins.common import Framework
 
 try:
@@ -21,9 +21,9 @@ logger = logging.getLogger("Spring")
 
 
 class CustomFramework(Framework):
-    def __init__(self, workingDir, processors):
-        self.workingDir = workingDir
-        self.elementTree = None
+    def __init__(self, working_dir, processors):
+        self.working_dir = working_dir
+        self.element_tree = None
         self.endpoints = []
         self.processor = processors['java']
 
@@ -35,16 +35,16 @@ class CustomFramework(Framework):
         """
         try:
             parser = ET.XMLParser(resolve_entities=False)
-            self.elementTree = ET.parse(filepath, parser)
-            self.rootElement = self.elementTree.getroot()
-            if None in self.rootElement.nsmap:
-                self.namespace = self.rootElement.nsmap[None]
+            self.element_tree = ET.parse(filepath, parser)
+            self.root_element = self.element_tree.getroot()
+            if None in self.root_element.nsmap:
+                self.namespace = self.root_element.nsmap[None]
             else:
                 self.namespace = None
         except Exception as e:
             logger.warning("There was a problem parsing the xml: %s", e)
-            self.elementTree = None
-            self.rootElement = None
+            self.element_tree = None
+            self.root_element = None
 
     def identify(self):
         """
@@ -53,51 +53,51 @@ class CustomFramework(Framework):
         the spring DispatcherServlet.
         :return: Boolean of whether it's a spring project
         """
-        globPath = os.path.join(self.workingDir, '**', 'WEB-INF', 'web.xml')
-        files = list(glob.glob(globPath, recursive=True))
+        glob_path = os.path.join(self.working_dir, '**', 'WEB-INF', 'web.xml')
+        files = list(glob.glob(glob_path, recursive=True))
 
         # Loop through files looking for spring declaration
         for f in files:
             self._load_xml(f)
-            if self.rootElement is not None:
+            if self.root_element is not None:
                 if self.namespace is not None:
-                    searchString = ".//{{{}}}servlet-class".format(self.namespace)
+                    search_string = ".//{{{}}}servlet-class".format(self.namespace)
                 else:
-                    searchString = ".//servlet-class"
-                for servlet in self.rootElement.iterfind(searchString):
+                    search_string = ".//servlet-class"
+                for servlet in self.root_element.iterfind(search_string):
                     if 'org.springframework.web.servlet.DispatcherServlet' in servlet.text:
                         return True
                     # Dynamically check if the class is a subclass of
                     # DispatcherServlet
-                    codeBaseDir = self.processor.find_code_base_dir(f)
+                    code_base_dir = self.processor.find_code_base_dir(f)
 
-                    classPath = os.path.join(codeBaseDir,
+                    class_path = os.path.join(code_base_dir,
                                              servlet.text.replace('.', '/')) + '.java'
 
-                    if os.path.isfile(classPath):  # pragma: no cover
-                        fileContents = codecs.open(classPath, 'r', 'utf-8', 'ignore').read()
-                        if 'extends DispatcherServlet' in fileContents:
+                    if os.path.isfile(class_path):  # pragma: no cover
+                        file_contents = codecs.open(class_path, 'r', 'utf-8', 'ignore').read()
+                        if 'extends DispatcherServlet' in file_contents:
                             return True
                         elif 'extends org.springframework.web.servlet.DispatcherServlet':
                             return True
 
         # If we couldn't construct the base code dir correctly let's just search
-        # the classLookupTable and see if it extends the DispatcherServlet
+        # the class_lookup_table and see if it extends the DispatcherServlet
         for f in files:
             self._load_xml(f)
-            if self.rootElement is not None:
+            if self.root_element is not None:
                 if self.namespace is not None:
-                    searchString = ".//{{{}}}servlet-class".format(self.namespace)
+                    search_string = ".//{{{}}}servlet-class".format(self.namespace)
                 else:
-                    searchString = ".//servlet-class"
-                for servlet in self.rootElement.iterfind(searchString):
-                    if servlet.text in self.processor.classLookupTable:
+                    search_string = ".//servlet-class"
+                for servlet in self.root_element.iterfind(search_string):
+                    if servlet.text in self.processor.class_lookup_table:
                         # We found the file lets see if it extends DispatcherServlet
-                        classPath = os.path.join(self.workingDir,
-                                                 self.processor.classLookupTable[servlet.text][2])
+                        class_path = os.path.join(self.working_dir,
+                                                 self.processor.class_lookup_table[servlet.text][2])
 
-                        fileContents = codecs.open(classPath, 'r', 'utf-8', 'ignore').read()
-                        if 'extends DispatcherServlet' in fileContents:
+                        file_contents = codecs.open(class_path, 'r', 'utf-8', 'ignore').read()
+                        if 'extends DispatcherServlet' in file_contents:
                             return True
                         elif 'extends org.springframework.web.servlet.DispatcherServlet':
                             return True
@@ -106,8 +106,8 @@ class CustomFramework(Framework):
         # spring. The new method deosn't require the web.xml file and just
         # implements WebApplicationInitializer or
         # extends AbstractAnnotationConfigDispatcherServletInitializer
-        globPath = os.path.join(self.workingDir, '**', '*.java')
-        files = glob.glob(globPath, recursive=True)
+        glob_path = os.path.join(self.working_dir, '**', '*.java')
+        files = glob.glob(glob_path, recursive=True)
 
         for f in files:  # pragma: no cover
             with codecs.open(f, 'r', 'utf-8', 'ignore') as fh:
@@ -134,7 +134,7 @@ class CustomFramework(Framework):
         """
         # Find all the @RequestMappings in the project and create endpoint
         # objects for each one
-        for f in self.processor.javaCompilationUnits:
+        for f in self.processor.java_compilation_units:
             self._find_request_mappings(f)
 
         # Loop through the list of endpoints and find the params for each based
@@ -151,20 +151,20 @@ class CustomFramework(Framework):
         :param filepath: The filepath to the script file
         :return: None
         """
-        springAnnos = ["RequestMapping", "GetMapping", "PostMapping", "PutMapping", "DeleteMapping", "PatchMapping"]
-        tree = self.processor.javaCompilationUnits[filepath]
+        spring_annos = ["RequestMapping", "GetMapping", "PostMapping", "PutMapping", "DeleteMapping", "PatchMapping"]
+        tree = self.processor.java_compilation_units[filepath]
 
         # Use the Javalang filter method to find all annotations in that
         # specific file and loop through them checking if they're ReqMaps
         for path, anno in tree.filter(javalang.tree.Annotation):
-            if anno.name in springAnnos:
+            if anno.name in spring_annos:
                 # Checks if the ReqMap is on a class
                 if self.processor.check_annotation_type(path) == 'class':
                     continue  # the ReqMap is on a class we'll skip it for now
 
                 # Check if the parent class is an abstract class
-                parentClass = self._get_parent_class(path)
-                if parentClass and hasattr(parentClass, 'modifiers') and 'abstract' in parentClass.modifiers:
+                parent_class = self._get_parent_class(path)
+                if parent_class and hasattr(parent_class, 'modifiers') and 'abstract' in parent_class.modifiers:
                     # TODO: Handle abstract classes
                     continue  # ignoring abstract classes for now
 
@@ -175,25 +175,25 @@ class CustomFramework(Framework):
                 # Parse out ReqMap parameters
                 ep = self._parse_req_map_annotation(anno, tree)
 
-                ep['lineNumber'] = self.processor.get_parent_declaration(path).position[0]
+                ep['line_number'] = self.processor.get_parent_declaration(path).position[0]
 
                 # Attempt to parse out parent class ReqMap anno params
-                parentReqMap = self._get_parent_request_mapping(path)
+                parent_req_map = self._get_parent_request_mapping(path)
 
                 # If there's a parent ReqMap combine the child with the parent
-                if parentReqMap is not None:
-                    ep = self._combine_endpoint_sets(parentReqMap, ep)
+                if parent_req_map is not None:
+                    ep = self._combine_endpoint_sets(parent_req_map, ep)
 
                 # Construct path to the Method Declaration
                 # Pop last element off path until type is MethodDeclaration
-                javaPath = list(path)
-                while type(javaPath[-1]) is not javalang.tree.MethodDeclaration:
-                    javaPath.pop()
-                javaPath = tuple(javaPath)
+                java_path = list(path)
+                while type(java_path[-1]) is not javalang.tree.MethodDeclaration:
+                    java_path.pop()
+                java_path = tuple(java_path)
 
                 if ep and ('endpoints' in ep) and ep['endpoints']:
                     self.endpoints.append({
-                        'javaPath': javaPath,
+                        'java_path': java_path,
                         'filepath': filepath,
                         **ep
                     })
@@ -205,12 +205,12 @@ class CustomFramework(Framework):
         :param path: The javalang path to the element
         :return: Boolean (True if there's a @Controller or @RestController on the class)
         """
-        parentClass = self._get_parent_class(path)
+        parent_class = self._get_parent_class(path)
 
         # We found the parent class now let's loop through it's
         # annotations if it has any
-        if hasattr(parentClass, 'annotations'):
-            for anno in parentClass.annotations:
+        if hasattr(parent_class, 'annotations'):
+            for anno in parent_class.annotations:
                 # Check if the parent class is a controller
                 if anno.name in ['Controller', 'RestController']:
                     return True
@@ -234,13 +234,13 @@ class CustomFramework(Framework):
         :param path: The javalang path to the element
         :return: None or the parsed params from the class level RequestMapping
         """
-        parentClass = self._get_parent_class(path)
+        parent_class = self._get_parent_class(path)
         tree = path[0]
 
         # We found the parent class now let's loop through it's
         # annotations if it has any
-        if hasattr(parentClass, 'annotations'):
-            for anno in parentClass.annotations:
+        if hasattr(parent_class, 'annotations'):
+            for anno in parent_class.annotations:
                 # Check if there's a parent ReqMap
                 if anno.name == "RequestMapping":
                     # we have a parent endpoint
@@ -256,7 +256,7 @@ class CustomFramework(Framework):
         """
         params = annotation.element
         # Create an empty Dict that will later be returned
-        endpointDict = {
+        endpoint_dict = {
             'endpoints': set(),
             'methods': set(),
             'params': [],
@@ -267,36 +267,36 @@ class CustomFramework(Framework):
         parameters = self._parse_anno_args_to_dict(params)
 
         # Resolve the values within the dictionary to python values
-        resolvedParameters = self._resolve_values_in_dict(parameters, tree)
+        resolved_parameters = self._resolve_values_in_dict(parameters, tree)
 
         # We've resolved the values now let's make an endpoint for it
-        if 'value' in resolvedParameters:
-            if type(resolvedParameters['value']) is list:
-                endpointDict['endpoints'] = endpointDict['endpoints'] | set(resolvedParameters['value'])
+        if 'value' in resolved_parameters:
+            if type(resolved_parameters['value']) is list:
+                endpoint_dict['endpoints'] = endpoint_dict['endpoints'] | set(resolved_parameters['value'])
             else:
-                endpointDict['endpoints'].add(resolvedParameters['value'])
-        if 'method' in resolvedParameters:
-            if type(resolvedParameters['method']) is list:
-                endpointDict['methods'] = endpointDict['methods'] | set(resolvedParameters['method'])
+                endpoint_dict['endpoints'].add(resolved_parameters['value'])
+        if 'method' in resolved_parameters:
+            if type(resolved_parameters['method']) is list:
+                endpoint_dict['methods'] = endpoint_dict['methods'] | set(resolved_parameters['method'])
             else:
-                endpointDict['methods'].add(resolvedParameters['method'])
-        if 'params' in resolvedParameters:
-            if type(resolvedParameters['params']) is list:
-                endpointDict['params'] += resolvedParameters['params']
+                endpoint_dict['methods'].add(resolved_parameters['method'])
+        if 'params' in resolved_parameters:
+            if type(resolved_parameters['params']) is list:
+                endpoint_dict['params'] += resolved_parameters['params']
             else:
-                endpointDict['params'].append(resolvedParameters['params'])
-        if 'headers' in resolvedParameters:
-            if type(resolvedParameters['headers']) is list:
-                endpointDict['headers'] = endpointDict['headers'] | set(resolvedParameters['headers'])
+                endpoint_dict['params'].append(resolved_parameters['params'])
+        if 'headers' in resolved_parameters:
+            if type(resolved_parameters['headers']) is list:
+                endpoint_dict['headers'] = endpoint_dict['headers'] | set(resolved_parameters['headers'])
             else:
-                endpointDict['headers'].add(resolvedParameters['headers'].replace('=', ': '))
+                endpoint_dict['headers'].add(resolved_parameters['headers'].replace('=', ': '))
 
         # Add methods for shorthand mappings
         if annotation.name.endswith('Mapping') and annotation.name != 'RequestMapping':
             method = annotation.name[:-len('Mapping')]
-            endpointDict['methods'].add(method.upper())
+            endpoint_dict['methods'].add(method.upper())
 
-        return endpointDict
+        return endpoint_dict
 
     def _parse_anno_args_to_dict(self, params):
         """
@@ -306,7 +306,7 @@ class CustomFramework(Framework):
         passed into the ReqMap
         :return: Python Dictionary
         """
-        paramDict = {}
+        param_dict = {}
 
         # Make params into list if it isn't a list already
         if type(params) is not list:
@@ -316,129 +316,129 @@ class CustomFramework(Framework):
         for param in params:
             if type(param) is javalang.tree.ElementValuePair:
                 if param.name == 'path':
-                    paramDict['value'] = param.value
+                    param_dict['value'] = param.value
                 else:
-                    paramDict[param.name] = param.value
+                    param_dict[param.name] = param.value
             else:
-                paramDict['value'] = param
+                param_dict['value'] = param
 
-        return paramDict
+        return param_dict
 
-    def _resolve_values_in_dict(self, myDict, tree):
+    def _resolve_values_in_dict(self, my_dict, tree):
         """
         This method takes a dictionary with Javalang object within the values
         and attempts to resolve the values for each key.
-        :param myDict: The dictionary with javalang objects in the values
+        :param my_dict: The dictionary with javalang objects in the values
         :param tree: The javalang tree
         :return: The resolved python dictionary
         """
-        resolvedDict = {}
+        resolved_dict = {}
 
         # Loop through the dictionary resolving the values
-        for originalKey, originalValue in myDict.items():
-            resolvedValue = None  # Placeholder for the final value
+        for original_key, original_value in my_dict.items():
+            resolved_value = None  # Placeholder for the final value
 
             # If the Dict value is a ElementArrayValue convert to list
             # Make all other lists with a single element
-            if type(originalValue) is javalang.tree.ElementArrayValue:
-                originalValue = originalValue.values
-            elif type(originalValue) is not list:
-                originalValue = [originalValue]
+            if type(original_value) is javalang.tree.ElementArrayValue:
+                original_value = original_value.values
+            elif type(original_value) is not list:
+                original_value = [original_value]
 
             # loop through the list we just created
-            for val in originalValue:
-                tempValue = None  # Placeholder for when there are multiple elements in the list
+            for val in original_value:
+                temp_value = None  # Placeholder for when there are multiple elements in the list
 
                 # Resolve if type is javalang.tree.Literal
                 if type(val) is javalang.tree.Literal:
-                    tempValue = val.value.strip('" \'')
+                    temp_value = val.value.strip('" \'')
 
                 # Resolve if type is javalang.tree.MemberReference
                 elif type(val) is javalang.tree.MemberReference:
-                    if originalKey != 'method':
-                        tempValue = self.processor.resolve_member_reference(tree, val.member, val.qualifier)
+                    if original_key != 'method':
+                        temp_value = self.processor.resolve_member_reference(tree, val.member, val.qualifier)
                     else:
                         # The key is 'method' so we'll process those MemberReferences differently
                         if 'GET' in val.children:
-                            tempValue = "GET"
+                            temp_value = "GET"
                         elif 'POST' in val.children:
-                            tempValue = "POST"
+                            temp_value = "POST"
                         elif 'DELETE' in val.children:
-                            tempValue = "DELETE"
+                            temp_value = "DELETE"
                         elif 'HEAD' in val.children:
-                            tempValue = "HEAD"
+                            temp_value = "HEAD"
                         elif 'OPTIONS' in val.children:
-                            tempValue = "OPTIONS"
+                            temp_value = "OPTIONS"
                         elif 'PUT' in val.children:
-                            tempValue = "PUT"
+                            temp_value = "PUT"
                         elif 'TRACE' in val.children:
-                            tempValue = "TRACE"
+                            temp_value = "TRACE"
 
                 # Resolve if type is javalang.tree.BinaryOperation
                 elif type(val) is javalang.tree.BinaryOperation:
-                    pathToElement = self.processor.find_path_to_element(tree, val)
-                    if type(pathToElement) is list:  # pragma: no cover
+                    path_to_element = self.processor.find_path_to_element(tree, val)
+                    if type(path_to_element) is list:  # pragma: no cover
                         try:
-                            pathToElement = list(filter(lambda x: 'Annotation' in str(x), pathToElement))[0]
+                            path_to_element = list(filter(lambda x: 'Annotation' in str(x), path_to_element))[0]
                         except:
-                            pathToElement = pathToElement[0]
-                    tempValue = self.processor._resolve_binary_operation((pathToElement, val))
+                            path_to_element = path_to_element[0]
+                    temp_value = self.processor._resolve_binary_operation((path_to_element, val))
 
-                # Copy tempValue over to value variable and make list if there's
+                # Copy temp_value over to value variable and make list if there's
                 # already a value there
-                if tempValue is not None:
-                    if resolvedValue is None:
-                        resolvedValue = tempValue
-                    elif type(resolvedValue) is list:
-                        resolvedValue.append(tempValue)
+                if temp_value is not None:
+                    if resolved_value is None:
+                        resolved_value = temp_value
+                    elif type(resolved_value) is list:
+                        resolved_value.append(temp_value)
                     else:
-                        resolvedValue = [resolvedValue, tempValue]
+                        resolved_value = [resolved_value, temp_value]
 
-            if resolvedValue is not None:
-                resolvedDict[originalKey] = resolvedValue
+            if resolved_value is not None:
+                resolved_dict[original_key] = resolved_value
 
-        return resolvedDict
+        return resolved_dict
 
-    def _combine_endpoint_sets(self, parentEp, childEp):
+    def _combine_endpoint_sets(self, parent_ep, child_ep):
         """
         This method is used to combine a parent ReqMap with a child
         ReqMap.
-        :param parentEp: An endpoint dictionary representing a parent ReqMap
-        :param childEp: An endpoint dictionary representing a child ReqMap
+        :param parent_ep: An endpoint dictionary representing a parent ReqMap
+        :param child_ep: An endpoint dictionary representing a child ReqMap
         :return: A combined endpoint dictionary
         """
-        combinedEp = {
+        combined_ep = {
             'endpoints': set(),
             'methods': set(),
             'params': [],
             'headers': set(),
-            'lineNumber': None
+            'line_number': None
         }
-        if 'endpoints' in parentEp:
-            for pep in parentEp['endpoints']:
-                if childEp and 'endpoints' in childEp and len(childEp['endpoints']) > 0:
+        if 'endpoints' in parent_ep:
+            for pep in parent_ep['endpoints']:
+                if child_ep and 'endpoints' in child_ep and len(child_ep['endpoints']) > 0:
 
-                    for cep in childEp['endpoints']:
+                    for cep in child_ep['endpoints']:
                         if cep and pep:
-                            combinedEp['endpoints'].add(pep.rstrip('/') + '/' + cep.lstrip('/'))
+                            combined_ep['endpoints'].add(pep.rstrip('/') + '/' + cep.lstrip('/'))
                 else:
-                    combinedEp['endpoints'].add(pep)
+                    combined_ep['endpoints'].add(pep)
         else:
-            combinedEp['endpoints'] |= childEp['endpoints']
+            combined_ep['endpoints'] |= child_ep['endpoints']
 
-        if childEp and 'methods' in childEp:
-            combinedEp['methods'] |= childEp['methods']
-        if childEp and 'params' in childEp:
-            combinedEp['params'] += childEp['params']
-        if parentEp and 'params' in parentEp:
-            combinedEp['params'] += parentEp['params']
-        if parentEp and 'headers' in parentEp:
-            combinedEp['headers'] |= parentEp['headers']
+        if child_ep and 'methods' in child_ep:
+            combined_ep['methods'] |= child_ep['methods']
+        if child_ep and 'params' in child_ep:
+            combined_ep['params'] += child_ep['params']
+        if parent_ep and 'params' in parent_ep:
+            combined_ep['params'] += parent_ep['params']
+        if parent_ep and 'headers' in parent_ep:
+            combined_ep['headers'] |= parent_ep['headers']
 
-        if 'lineNumber' in childEp:
-            combinedEp['lineNumber'] = childEp['lineNumber']
+        if 'line_number' in child_ep:
+            combined_ep['line_number'] = child_ep['line_number']
 
-        return combinedEp
+        return combined_ep
 
     def _find_parameters(self, endpoint):
         """
@@ -462,15 +462,15 @@ class CustomFramework(Framework):
         :param endpoint: An endpoint dictionary
         :return: The Enriched endpoint dictionary
         """
-        tree = self.processor.get_compilation_unit(endpoint['javaPath'])
-        method = self.processor.get_parent_declaration(endpoint['javaPath'])
+        tree = self.processor.get_compilation_unit(endpoint['java_path'])
+        method = self.processor.get_parent_declaration(endpoint['java_path'])
 
         # Check parameters of method for @RequestParam or String
         for param in method.parameters:
             # Filter by spring annotations
-            springAnnos = [x.name for x in param.annotations if self._is_spring_object(x.name, tree)]
+            spring_annos = [x.name for x in param.annotations if self._is_spring_object(x.name, tree)]
 
-            if springAnnos and 'RequestParam' in springAnnos:
+            if spring_annos and 'RequestParam' in spring_annos:
                 for anno in param.annotations:
                     if anno.name == 'RequestParam':
                         # Found a RequestParam now let's parse it
@@ -478,21 +478,21 @@ class CustomFramework(Framework):
                         if parameter is None or parameter == "":
                             parameter = param.name
 
-                        paramDict = {
+                        param_dict = {
                             'name': parameter,
                             'filepath': endpoint['filepath'],
-                            'lineNumber': anno.position[0]
+                            'line_number': anno.position[0]
                         }
 
-                        endpoint['params'].append(paramDict)
-            elif not springAnnos and param.type.name == 'String':
-                paramDict = {
+                        endpoint['params'].append(param_dict)
+            elif not spring_annos and param.type.name == 'String':
+                param_dict = {
                     'name': param.name,
                     'filepath': endpoint['filepath'],
-                    'lineNumber': param.position[0]
+                    'line_number': param.position[0]
                 }
 
-                endpoint['params'].append(paramDict)
+                endpoint['params'].append(param_dict)
 
         return endpoint
 
@@ -507,10 +507,10 @@ class CustomFramework(Framework):
         if hasattr(anno, 'element') and anno.element:
             params = anno.element
             parameters = self._parse_anno_args_to_dict(params)
-            resolvedParameters = self._resolve_values_in_dict(parameters, tree)
+            resolved_parameters = self._resolve_values_in_dict(parameters, tree)
 
-            if 'value' in resolvedParameters:
-                return resolvedParameters['value']
+            if 'value' in resolved_parameters:
+                return resolved_parameters['value']
 
     def _find_request_get_param(self, endpoint):
         """
@@ -518,21 +518,21 @@ class CustomFramework(Framework):
         :param endpoint: An endpoint dictionary
         :return: The enriched endpoint dictionary
         """
-        tree = self.processor.get_compilation_unit(endpoint['javaPath'])
-        searchNode = self.processor.get_parent_declaration(endpoint['javaPath'])
+        tree = self.processor.get_compilation_unit(endpoint['java_path'])
+        search_node = self.processor.get_parent_declaration(endpoint['java_path'])
 
         # Find all method invocation within this method
-        methodInvocations = self.processor.filter_on_path(searchNode, javalang.tree.MethodInvocation, tree)
+        method_invocations = self.processor.filter_on_path(search_node, javalang.tree.MethodInvocation, tree)
 
-        for path, mi in methodInvocations:
+        for path, mi in method_invocations:
             if mi.member == "getParameter":
                 if type(mi.arguments) is list:
-                    resolvedParameters = self._resolve_values_in_dict({'params': mi.arguments}, tree)
-                    if 'params' in resolvedParameters and resolvedParameters['params']:
+                    resolved_parameters = self._resolve_values_in_dict({'params': mi.arguments}, tree)
+                    if 'params' in resolved_parameters and resolved_parameters['params']:
                         endpoint['params'].append({
-                            'name': resolvedParameters['params'],
+                            'name': resolved_parameters['params'],
                             'filepath': endpoint['filepath'],
-                            'lineNumber': mi.position[0]
+                            'line_number': mi.position[0]
                         })
 
         return endpoint
@@ -544,44 +544,44 @@ class CustomFramework(Framework):
         :return:
         """
         # look for references to JSPs from within the endpoint's scope
-        templatePaths = set()
+        template_paths = set()
 
-        tree = self.processor.get_compilation_unit(endpoint['javaPath'])
-        searchNode = self.processor.get_parent_declaration(endpoint['javaPath'])
+        tree = self.processor.get_compilation_unit(endpoint['java_path'])
+        search_node = self.processor.get_parent_declaration(endpoint['java_path'])
 
         # look for return new ModelAndView()
-        classCreators = self.processor.filter_on_path(searchNode, javalang.tree.ClassCreator, tree)
-        for path, cc in classCreators:
+        class_creators = self.processor.filter_on_path(search_node, javalang.tree.ClassCreator, tree)
+        for path, cc in class_creators:
             if cc.type.name == "ModelAndView" and hasattr(cc, 'arguments') and len(cc.arguments) > 0:
-                resolvedValues = self._resolve_values_in_dict({'jsp': cc.arguments[0]}, tree)
-                if 'jsp' in resolvedValues and resolvedValues['jsp'] and resolvedValues['jsp'].endswith(".jsp"):
-                    templatePaths.add(resolvedValues['jsp'].lstrip('/'))
+                resolved_values = self._resolve_values_in_dict({'jsp': cc.arguments[0]}, tree)
+                if 'jsp' in resolved_values and resolved_values['jsp'] and resolved_values['jsp'].endswith(".jsp"):
+                    template_paths.add(resolved_values['jsp'].lstrip('/'))
 
         # look for return [String]
-        returnStatements = self.processor.filter_on_path(searchNode, javalang.tree.ReturnStatement, tree)
-        for path, rs in returnStatements:
-            resolvedValues = self._resolve_values_in_dict({'jsp': rs.expression}, tree)
-            if 'jsp' in resolvedValues and resolvedValues['jsp'] and resolvedValues['jsp'].endswith(".jsp"):
+        return_statements = self.processor.filter_on_path(search_node, javalang.tree.ReturnStatement, tree)
+        for path, rs in return_statements:
+            resolved_values = self._resolve_values_in_dict({'jsp': rs.expression}, tree)
+            if 'jsp' in resolved_values and resolved_values['jsp'] and resolved_values['jsp'].endswith(".jsp"):
 
-                if ":" in resolvedValues['jsp']:
-                    resolvedValues['jsp'] = resolvedValues['jsp'].split(":")[1]
+                if ":" in resolved_values['jsp']:
+                    resolved_values['jsp'] = resolved_values['jsp'].split(":")[1]
 
-                templatePaths.add(resolvedValues['jsp'].lstrip('/'))
+                template_paths.add(resolved_values['jsp'].lstrip('/'))
 
 
         # look for getRequestDispatcher()
-        methodInvocations = self.processor.filter_on_path(searchNode, javalang.tree.MethodInvocation, tree)
-        for path, mi in methodInvocations:
+        method_invocations = self.processor.filter_on_path(search_node, javalang.tree.MethodInvocation, tree)
+        for path, mi in method_invocations:
             if mi.member == "getRequestDispatcher":
-                resolvedValues = self._resolve_values_in_dict({'jsp': mi.arguments[0]}, tree)
-                if 'jsp' in resolvedValues and resolvedValues['jsp'] and resolvedValues['jsp'].endswith(".jsp"):
-                    templatePaths.add(resolvedValues['jsp'].lstrip('/'))
+                resolved_values = self._resolve_values_in_dict({'jsp': mi.arguments[0]}, tree)
+                if 'jsp' in resolved_values and resolved_values['jsp'] and resolved_values['jsp'].endswith(".jsp"):
+                    template_paths.add(resolved_values['jsp'].lstrip('/'))
 
         # Add JSP references to endpoint
-        fullTemplatePaths = []
-        for path in templatePaths:
-            fullTemplatePaths.append(self.processor.webContextDir + path)
-        endpoint['templates'] = set(fullTemplatePaths)
+        full_template_paths = []
+        for path in template_paths:
+            full_template_paths.append(self.processor.web_context_dir + path)
+        endpoint['templates'] = set(full_template_paths)
 
         return endpoint
 
@@ -594,11 +594,11 @@ class CustomFramework(Framework):
         """
         # Process the JSPs found
         for template in endpoint['templates']:
-            relativePath = template.split(self.processor.webContextDir)[1]
-            foundParams = self.processor.get_jsp_params(relativePath)
-            foundParams = list(map(lambda x: {'name': x, 'filepath': template}, foundParams))
-            if foundParams:
-                endpoint['params'] += foundParams
+            relative_path = template.split(self.processor.web_context_dir)[1]
+            found_params = self.processor.get_jsp_params(relative_path)
+            found_params = list(map(lambda x: {'name': x, 'filepath': template}, found_params))
+            if found_params:
+                endpoint['params'] += found_params
 
         return endpoint
 
@@ -630,9 +630,9 @@ class CustomFramework(Framework):
         :param endpoints: List of endpoint dictionaries
         :return: List of cleaned endpoints
         """
-        cleanEndpoints = []
+        clean_endpoints = []
         for ep in endpoints:
-            cleanEndpoint = {}
+            clean_endpoint = {}
             for k, v in ep.items():
                 if k == 'endpoints':
                     cleaned_eps = set()
@@ -642,11 +642,11 @@ class CustomFramework(Framework):
                         else:
                             cleaned_eps.add(endpoint)
                     v = cleaned_eps
-                if k in ['endpoints', 'params', 'methods', 'filepath', 'templates', 'headers', 'lineNumber']:
-                    cleanEndpoint[k] = v
-            if 'endpoints' in cleanEndpoint:
-                cleanEndpoints.append(cleanEndpoint)
-        return cleanEndpoints
+                if k in ['endpoints', 'params', 'methods', 'filepath', 'templates', 'headers', 'line_number']:
+                    clean_endpoint[k] = v
+            if 'endpoints' in clean_endpoint:
+                clean_endpoints.append(clean_endpoint)
+        return clean_endpoints
 
     def _is_spring_object(self, name, tree):
         """
