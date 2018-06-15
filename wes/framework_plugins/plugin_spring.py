@@ -260,7 +260,7 @@ class CustomFramework(Framework):
             'endpoints': set(),
             'methods': set(),
             'params': [],
-            'headers': set()
+            'headers': []
         }
 
         # Process the parameter passed into the ReqMap into a Dictionary
@@ -281,15 +281,31 @@ class CustomFramework(Framework):
             else:
                 endpoint_dict['methods'].add(resolved_parameters['method'])
         if 'params' in resolved_parameters:
-            if type(resolved_parameters['params']) is list:
-                endpoint_dict['params'] += resolved_parameters['params']
-            else:
-                endpoint_dict['params'].append(resolved_parameters['params'])
+            if type(resolved_parameters['params']) is not list:
+                resolved_parameters['params'] = [resolved_parameters['params']]
+                for param in resolved_parameters['params']:
+                    param_dict = {}
+
+                    if '=' in param:
+                        param_dict['name'] = param.split('=')[0]
+                        param_dict['value'] = param.split('=')[1]
+                    else:
+                        param_dict['name'] = param
+                    
+                    endpoint_dict['params'].append(param_dict)
         if 'headers' in resolved_parameters:
-            if type(resolved_parameters['headers']) is list:
-                endpoint_dict['headers'] = endpoint_dict['headers'] | set(resolved_parameters['headers'])
-            else:
-                endpoint_dict['headers'].add(resolved_parameters['headers'].replace('=', ': '))
+            if type(resolved_parameters['headers']) is not list:
+                resolved_parameters['headers'] = [resolved_parameters['headers']]
+                for header in resolved_parameters['headers']:
+                    header_dict = {}
+
+                    if '=' in header:
+                        header_dict['name'] = header.split('=')[0]
+                        header_dict['value'] = header.split('=')[1]
+                    else:
+                        header_dict['name'] = header
+                    
+                    endpoint_dict['headers'].append(header_dict)
 
         # Add methods for shorthand mappings
         if annotation.name.endswith('Mapping') and annotation.name != 'RequestMapping':
@@ -411,7 +427,7 @@ class CustomFramework(Framework):
             'endpoints': set(),
             'methods': set(),
             'params': [],
-            'headers': set(),
+            'headers': [],
             'line_number': None
         }
         if 'endpoints' in parent_ep:
@@ -433,7 +449,7 @@ class CustomFramework(Framework):
         if parent_ep and 'params' in parent_ep:
             combined_ep['params'] += parent_ep['params']
         if parent_ep and 'headers' in parent_ep:
-            combined_ep['headers'] |= parent_ep['headers']
+            combined_ep['headers'] += parent_ep['headers']
 
         if 'line_number' in child_ep:
             combined_ep['line_number'] = child_ep['line_number']

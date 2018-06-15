@@ -101,7 +101,7 @@ def _convert_elements(elements):
     # add value
     for element in elements:
         if 'value' not in element:
-            element['value'] = ""
+            element['value'] = ''
 
     return elements
 
@@ -127,7 +127,7 @@ def seperate_endpoints(endpoints):
                     'plugin': endpoint['plugin'],
                     'params': endpoint['params'] or [],
                     'templates': list(set(endpoint['templates'])) or [],
-                    'headers': list(set(endpoint['headers'])) if 'headers' in endpoint else [],
+                    'headers': endpoint['headers'] if 'headers' in endpoint else [],
                     'filepath': endpoint['filepath'] or None,
                     'line_number': endpoint['line_number'] if 'line_number' in endpoint else None
                 }
