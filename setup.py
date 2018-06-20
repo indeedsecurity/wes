@@ -25,7 +25,6 @@ setup(
     entry_points={
         'console_scripts': [
             'wes = wes.main:main',
-            'wes-web = wes.web:console',
         ],
     }
 )
