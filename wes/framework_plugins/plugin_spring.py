@@ -283,32 +283,34 @@ class CustomFramework(Framework):
         if 'params' in resolved_parameters:
             if type(resolved_parameters['params']) is not list:
                 resolved_parameters['params'] = [resolved_parameters['params']]
-                for param in resolved_parameters['params']:
-                    param_dict = {}
+            for param in resolved_parameters['params']:
+                param_dict = {}
 
-                    if '=' in param:
-                        param_dict['name'] = param.split('=')[0]
-                        param_dict['value'] = param.split('=')[1]
-                    else:
-                        param_dict['name'] = param
-                    
-                    endpoint_dict['params'].append(param_dict)
+                if '=' in param:
+                    param_dict['name'] = param.split('=')[0]
+                    param_dict['value'] = param.split('=')[1]
+                else:
+                    param_dict['name'] = param
+                
+                endpoint_dict['params'].append(param_dict)
         if 'headers' in resolved_parameters:
             if type(resolved_parameters['headers']) is not list:
                 resolved_parameters['headers'] = [resolved_parameters['headers']]
-                for header in resolved_parameters['headers']:
-                    header_dict = {}
+            for header in resolved_parameters['headers']:
+                header_dict = {}
 
-                    if '=' in header:
-                        header_dict['name'] = header.split('=')[0]
-                        header_dict['value'] = header.split('=')[1]
-                    else:
-                        header_dict['name'] = header
-                    
-                    endpoint_dict['headers'].append(header_dict)
+                if '=' in header:
+                    header_dict['name'] = header.split('=')[0]
+                    header_dict['value'] = header.split('=')[1]
+                else:
+                    header_dict['name'] = header
+                
+                endpoint_dict['headers'].append(header_dict)
 
         # Add methods for shorthand mappings
-        if annotation.name.endswith('Mapping') and annotation.name != 'RequestMapping':
+        if (hasattr(annotation, 'name') and
+            annotation.name.endswith('Mapping') and
+            annotation.name != 'RequestMapping'):
             method = annotation.name[:-len('Mapping')]
             endpoint_dict['methods'].add(method.upper())
 

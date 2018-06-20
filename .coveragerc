@@ -4,5 +4,4 @@ source =
 
 [report]
 omit =
-    wes/web.py
     wes/framework_plugins/plugin_django.py

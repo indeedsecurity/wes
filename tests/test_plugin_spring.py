@@ -221,7 +221,7 @@ public class SMVC001 {
         'endpoints': {'/test'},
         'methods': {'GET'},
         'params': [],
-        'headers': set()
+        'headers': []
     }
 
 def test_parse_req_map_annotation(plugin, mocker):
@@ -242,8 +242,8 @@ def test_parse_req_map_annotation(plugin, mocker):
     assert plugin._parse_req_map_annotation(fake_annotation, '') == {
         'endpoints': {'/test'},
         'methods': {'GET'},
-        'params': ['myParam'],
-        'headers': set()
+        'params': [{'name': 'myParam'}],
+        'headers': []
     }
 
 def test_parse_req_map_annotation_lists(plugin, mocker):
@@ -264,8 +264,8 @@ def test_parse_req_map_annotation_lists(plugin, mocker):
     assert plugin._parse_req_map_annotation(fake_annotation, '') == {
         'endpoints': {'/test', '/test2'},
         'methods': {'GET', 'POST'},
-        'params': ['myParam', 'test'],
-        'headers': set()
+        'params': [{'name': 'myParam'}, {'name': 'test'}],
+        'headers': []
     }
 
 def test_parse_anno_args_to_dict(plugin):
@@ -354,21 +354,21 @@ def test_combine_endpoint_sets(plugin):
     first_test = plugin._combine_endpoint_sets(parent1, child1)
     assert ('endpoints', {'/test1/test3', '/test1/test4', '/test2/test3', '/test2/test4'}) in first_test.items()
     assert ('methods', {'GET'}) in first_test.items()
-    assert ('headers', set()) in first_test.items()
+    assert ('headers', []) in first_test.items()
     assert ('line_number', None) in first_test.items()
     assert set(first_test['params']) == {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
 
     second_test = plugin._combine_endpoint_sets(parent1, child2)
     assert ('endpoints', {'/test1', '/test2'}) in second_test.items()
     assert ('methods', {'GET'}) in second_test.items()
-    assert ('headers', set()) in second_test.items()
+    assert ('headers', []) in second_test.items()
     assert ('line_number', None) in second_test.items()
     assert set(second_test['params']) == {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
 
     third_test = plugin._combine_endpoint_sets(parent2, child1)
     assert ('endpoints', {'/test3', '/test4'}) in third_test.items()
     assert ('methods', {'GET'}) in third_test.items()
-    assert ('headers', set()) in third_test.items()
+    assert ('headers', []) in third_test.items()
     assert ('line_number', None) in third_test.items()
     assert set(third_test['params']) == {'testParam1', 'testParam2', 'testParam3', 'testParam4'}
 
