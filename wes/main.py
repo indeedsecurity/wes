@@ -356,7 +356,7 @@ def main(sysargs=sys.argv[1:]):
     if args.output_file == '-':
         print(json.dumps(har_endpoints, indent=1))
     else:
-        with open(args.output, 'w') as f:
+        with open(args.output_file, 'w') as f:
             json.dump(har_endpoints, f, indent=1, default=str)
             
 
