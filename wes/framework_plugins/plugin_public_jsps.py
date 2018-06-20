@@ -2,15 +2,15 @@ import glob
 # Add to wes to the sys path
 import sys
 import os
-wesDir = os.path.realpath(os.path.join(__file__, "..", ".."))
-sys.path.append(wesDir)
+wes_dir = os.path.realpath(os.path.join(__file__, "..", ".."))
+sys.path.append(wes_dir)
 from wes.framework_plugins.common import Framework
 
 
 class CustomFramework(Framework):
-    def __init__(self, workingDir, processors):
-        self.workingDir = workingDir
-        self.webContextDir = self._find_java_web_context()
+    def __init__(self, working_dir, processors):
+        self.working_dir = working_dir
+        self.web_context_dir = self._find_java_web_context()
         self.processor = processors['java']
 
     def identify(self):
@@ -19,8 +19,8 @@ class CustomFramework(Framework):
         the WEB-INF directory. This method returns True if there are files and false if there aren't any.
         :return: Boolean
         """
-        globPath = os.path.join(self.workingDir, self.webContextDir, '**', '*.jsp')
-        files = glob.glob(globPath, recursive=True)
+        glob_path = os.path.join(self.working_dir, self.web_context_dir, '**', '*.jsp')
+        files = glob.glob(glob_path, recursive=True)
 
         files = list(filter(lambda x: os.path.isfile(x) and 'WEB-INF' not in x, files))
 
@@ -43,19 +43,19 @@ class CustomFramework(Framework):
         :return: A Dictionary with the endpoints
         """
         # Find all of the java files
-        globPath = os.path.join(self.workingDir, self.webContextDir, '**', '*.jsp')
-        projectFiles = glob.glob(globPath, recursive=True)
-        projectFiles = list(filter(lambda x: os.path.isfile(x) and 'WEB-INF' not in x, projectFiles))
+        glob_path = os.path.join(self.working_dir, self.web_context_dir, '**', '*.jsp')
+        project_files = glob.glob(glob_path, recursive=True)
+        project_files = list(filter(lambda x: os.path.isfile(x) and 'WEB-INF' not in x, project_files))
 
         endpoints = []
 
-        for jsp in projectFiles:
+        for jsp in project_files:
             filepath = self.processor.strip_work_dir(jsp)
-            params = self.processor.get_jsp_params(jsp.split(self.webContextDir)[-1])
+            params = self.processor.get_jsp_params(jsp.split(self.web_context_dir)[-1])
             params = list(map(lambda x: {'name': x, 'filepath': filepath}, params))
             endpoints.append({
                 'filepath': filepath,
-                'endpoints': set([jsp.split(self.webContextDir)[1]]),
+                'endpoints': set([jsp.split(self.web_context_dir)[1]]),
                 'params': params if params else [],
                 'methods': set(['GET']),
                 'templates': set([filepath]) if filepath else set()
@@ -69,15 +69,15 @@ class CustomFramework(Framework):
         the 'WEB-INF' directory.
         :return: A string with the directory
         """
-        globPath = os.path.join(self.workingDir, '**')
-        results = glob.glob(globPath, recursive=True)
-        webContextDir = None
+        glob_path = os.path.join(self.working_dir, '**')
+        results = glob.glob(glob_path, recursive=True)
+        web_context_dir = None
         for r in results:
             if 'WEB-INF' in r:
-                webContextDir = r
-        if not webContextDir:
+                web_context_dir = r
+        if not web_context_dir:
             return "web/"
 
-        webContextDir = webContextDir.split('WEB-INF')[0].replace(self.workingDir, '').lstrip('/')
+        web_context_dir = web_context_dir.split('WEB-INF')[0].replace(self.working_dir, '').lstrip('/')
 
-        return webContextDir
+        return web_context_dir

@@ -7,70 +7,40 @@ import codecs
 import datetime
 import json
 import logging
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 # Add to wes to the sys path
 import sys
 import os
-wesDir = os.path.realpath(os.path.join(__file__, "..", ".."))
-sys.path.append(wesDir)
+wes_dir = os.path.realpath(os.path.join(__file__, "..", ".."))
+sys.path.append(wes_dir)
 from wes.framework_plugins.common import JavaProcessor, PythonProcessor
-from wes.database import (Base, Endpoint, Parameter, ProductGroup,
-                          Product, Template, Header, get_or_create, delete_all_data)
 
 # configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s : %(levelname)s : %(message)s", datefmt="%H:%M:%S")
 logger = logging.getLogger("Main")
 
 
-def load_db(databaseUri):
-    engine = create_engine(databaseUri)
-
-    # Enable foreign keys for sqlite
-    if databaseUri.startswith('sqlite://'):
-        engine.execute('PRAGMA foreign_keys=ON')
-
-    session = sessionmaker()
-    session.configure(bind=engine)
-
-    # Creates all the tables if they don't exist
-    Base.metadata.create_all(engine)
-
-    return session
-
-
-def load_projects_csv(csvFile):  # pragma: no cover
-    projects = []
-    with codecs.open(csvFile, 'r', 'utf-8', 'ignore') as fh:
-        reader = csv.DictReader(fh)
-        for row in reader:
-            projects.append({'baseUrl': row['baseUrl'], 'gitRepo': row['gitRepo']})
-
-    return projects
-
-
-def clone_update_repo(projectFolder, gitRepo):
+def clone_update_repo(project_folder, git_repo):
     success = True
 
     # Check if the project has a folder in the working Dir
-    if os.path.isdir(projectFolder):
+    if os.path.isdir(project_folder):
         try:
             # If so pull changes from the repo
             logger.info("Pulling project changes...")
-            r = Repo(projectFolder)
+            r = Repo(project_folder)
             o = r.remotes.origin
             o.pull()
         except GitCommandError as e:
             logger.warning("Unable to pull project changes. Will try to re-clone.")
-            shutil.rmtree(projectFolder)
-            success = clone_update_repo(projectFolder, gitRepo)
+            shutil.rmtree(project_folder)
+            success = clone_update_repo(project_folder, git_repo)
     else:
         try:
             # Project doesn't exist in the working dir yet, let's clone it
             logger.info("Cloning the project...")
-            os.makedirs(projectFolder)
-            r = Repo.clone_from(gitRepo, projectFolder)
+            os.makedirs(project_folder)
+            r = Repo.clone_from(git_repo, project_folder)
         except GitCommandError as e:
             logger.warning("An error occurred while cloning the project.")
             logger.warning("Verify the repository exists and you have access.")
@@ -101,172 +71,11 @@ def import_all_framework_plugins(framework_plugins):
     return plugins
 
 
-def extend_endpoints_with_metadata(endpoints, gitRepo, productGroup, projectName, pluginName, baseUrl):
-    # Extend the endpoints found with information like the
-    # location of the repo, repo name, plugin, and base url.
-    for endpoint in endpoints:
-        for k, v in endpoint.items():
-            if type(v) is set:
-                endpoint[k] = list(v)
-        endpoint.update({
-            'gitRepo': gitRepo,
-            'productGroup': productGroup,
-            'product': projectName,
-            'plugin': pluginName,
-            'baseUrl': baseUrl
-        })
-    return endpoints
-
-
 def is_endpoint_regex(ep):
     if '*' in ep or '[' in ep or ']' in ep or '(' in ep or ')' in ep:
         return True
     else:
         return False
-
-
-def update_db_with_endpoints(endpoints, db):
-    # Now that we have the endpoints let's add new endpoints to the database
-    # and update existing ones
-
-    s = db()  # Create our session
-
-    # Keep track of how many new records
-    numRecords = 0
-    numNewRecords = 0
-
-    seperatedEndpoints = []
-
-    # Seperate the list of endpoints to have unique methods and endpoints
-    for endpoint in endpoints:
-        for ep in endpoint['endpoints']:
-            if not endpoint['methods']:
-                endpoint['methods'] = ['None']
-            for method in endpoint['methods']:
-                tempDict = {
-                    'baseUrl': endpoint['baseUrl'],
-                    'endpoint': ep,
-                    'method': method,
-                    'gitRepo': endpoint['gitRepo'],
-                    'productGroup': endpoint['productGroup'],
-                    'product': endpoint['product'],
-                    'plugin': endpoint['plugin'],
-                    'params': endpoint['params'] or [],
-                    'templates': set(endpoint['templates']) or set(),
-                    'headers': set(endpoint['headers']) if 'headers' in endpoint else set(),
-                    'filepath': endpoint['filepath'] or None,
-                    'lineNumber': endpoint['lineNumber'] if 'lineNumber' in endpoint else None
-                }
-                seperatedEndpoints.append(tempDict)
-
-    # Loop through each endpoint
-    for endpointDict in seperatedEndpoints:
-        numRecords += 1
-        # Attempt to pull out an existing endpoint db entry
-        epRecord = s.query(Endpoint)
-        epRecord = epRecord.filter(Endpoint.baseUrl == endpointDict['baseUrl'])
-        epRecord = epRecord.filter(Endpoint.endpoint == endpointDict['endpoint'])
-        epRecord = epRecord.filter(Endpoint.method == endpointDict['method'])
-        epRecord = epRecord.filter(Endpoint.filepath == endpointDict['filepath'])
-        if 'headers' in endpointDict:
-            for header in endpointDict['headers']:
-                epRecord = epRecord.filter(Endpoint.headers.any(Header.value == header))
-        results = epRecord.all()
-
-        # If there's are still more than one conflicting results, add in lineNumber
-        if len(results) > 1:
-            epRecord = epRecord.filter(Endpoint.lineNumber == endpointDict['lineNumber'])
-
-            results = epRecord.all()
-
-        # If the record is not None take the first element
-        if results:
-            epRecord = results[0]
-        else:
-            epRecord = None
-
-        if epRecord is None:
-            numNewRecords += 1
-            # Create new endpoint if one didn't exist
-            epRecord = Endpoint()
-
-        # Add references to other objects to endpoint
-        productGroup = get_or_create(s,
-                                     ProductGroup,
-                                     name=endpointDict['productGroup'])
-        product = get_or_create(s,
-                                Product,
-                                name=endpointDict['product'],
-                                gitRepo=endpointDict['gitRepo'],
-                                productGroupId=productGroup.id)
-        # Add simple parameters to the Endpoint object
-        epRecord.baseUrl = endpointDict['baseUrl']
-        epRecord.endpoint = endpointDict['endpoint']
-        epRecord.method = endpointDict['method']
-        epRecord.productId = product.id
-        epRecord.plugin = endpointDict['plugin']
-        epRecord.filepath = endpointDict['filepath']
-        epRecord.regex = is_endpoint_regex(endpointDict['endpoint'])
-        epRecord.lineNumber = endpointDict['lineNumber'] if 'lineNumber' in endpointDict else None
-
-        # Loop through adding object for each parameter in list
-        epRecord.parameters = []
-        for param in endpointDict['params']:
-            name = param['name'] if type(param) is dict else param
-            filepath = param['filepath'] if type(param) is dict else None
-            lineNumber = param['lineNumber'] if type(param) is dict and 'lineNumber' in param else None
-            paramObject = get_or_create(s,
-                                        Parameter,
-                                        name=name,
-                                        filepath=filepath,
-                                        lineNumber=lineNumber,
-                                        productId=product.id)
-            epRecord.parameters.append(paramObject)
-        # Loop through adding object for each template in list
-        epRecord.templates = []
-        for template in endpointDict['templates']:
-            templateObject = get_or_create(s,
-                                           Template,
-                                           filepath=template,
-                                           productId=product.id)
-            epRecord.templates.append(templateObject)
-        # Loop through adding object for each header in list
-        epRecord.headers = []
-        if 'headers' in endpointDict:
-            for header in endpointDict['headers']:
-                headerObject = get_or_create(s,
-                                             Header,
-                                             value=header)
-                epRecord.headers.append(headerObject)
-        # Update touchedDate for each endpoint we touch
-        epRecord.touchedDate = datetime.datetime.utcnow()
-        # Add the new/editted endpoint to the database and commit
-        s.add(epRecord)
-        s.commit()
-    # Close our session
-    s.close()
-    # Print Stats
-    logger.info("Found %s endpoints with %s new endpoints in this project.", numRecords, numNewRecords)
-
-
-def remove_stale_db_records(db):
-    # Removes all Endpoints in the Database that have touchedDate more more than
-    # 3 days old
-    s = db()  # Create our session
-
-    currentTime = datetime.datetime.utcnow()
-    threeDayAgo = currentTime - datetime.timedelta(days=3)
-
-    staleRecords = s.query(Endpoint).filter(Endpoint.touchedDate < threeDayAgo)
-
-    for staleRecord in staleRecords:
-        s.delete(staleRecord)
-
-    s.commit()
-    s.close()
-
-    # Print Stats
-    logger.info("Removed %s stale endpoints.", staleRecords.count())
 
 
 def regex_search_list(data, regex):
@@ -284,6 +93,141 @@ def regex_search_list(data, regex):
             return True
     return False
 
+def _convert_elements(elements):
+    # check elements
+    if not elements:
+        return []
+
+    # add value
+    for element in elements:
+        if 'value' not in element:
+            element['value'] = ''
+
+    return elements
+
+
+def seperate_endpoints(endpoints):
+    """
+    The endpoints returned from the individual plugins may contain
+    lists for the methods and the endpoint string
+    :param endpoints: List of endpoint dictionaries
+    """
+    seperated_endpoints = []
+
+    # Seperate the list of endpoints to have unique methods and endpoints
+    for endpoint in endpoints:
+        for ep in endpoint['endpoints']:
+            if not endpoint['methods']:
+                # If there's no method set it to GET
+                endpoint['methods'] = ['GET']
+            for method in endpoint['methods']:
+                tempDict = {
+                    'endpoint': ep,
+                    'method': method,
+                    'plugin': endpoint['plugin'],
+                    'params': endpoint['params'] or [],
+                    'templates': list(set(endpoint['templates'])) or [],
+                    'headers': endpoint['headers'] if 'headers' in endpoint else [],
+                    'filepath': endpoint['filepath'] or None,
+                    'line_number': endpoint['line_number'] if 'line_number' in endpoint else None
+                }
+                seperated_endpoints.append(tempDict)
+    
+    return seperated_endpoints
+
+
+def convert_endpoints_list_to_har(endpoints, project):
+    """
+    Used to convert list of endpoint dictionaries to HAR format
+    :param endpoints: List of endpoint dictionaries
+    :param project: Dictionary with project details
+    """
+    entries = []
+    for endpoint in endpoints:
+        # defaults
+        query_string = []
+        post_data_params = []
+        mime_type = ""
+
+        # url and method
+        url = '{}/{}'.format(project['base_url'].rstrip('/'), endpoint['endpoint'].lstrip('/'))
+        method = endpoint['method'] or "GET"
+
+        # headers
+        headers = _convert_elements(endpoint.get('headers'))
+
+        # cookies
+        cookies = _convert_elements(endpoint.get('cookies'))
+
+        # query string
+        if method.upper() == "GET":
+            query_string = _convert_elements(endpoint.get('params'))
+
+        # post data params
+        if method.upper() == "POST":
+            post_data_params = _convert_elements(endpoint.get('params'))
+
+        # mime type
+        if post_data_params:
+            mime_type = "application/x-www-form-urlencoded"
+        
+        # wes specific properties
+        plugin = endpoint.get('plugin')
+        templates = endpoint.get('templates')
+        filepath = endpoint.get('filepath')
+        line_number = endpoint.get('line_number')
+        git_repo = project.get('git_repo')
+
+        # add to entries
+        entries.append({'request': {
+            'method': method,
+            'url': url,
+            'cookies': cookies,
+            'headers': headers,
+            'queryString': query_string,
+            'postData': {
+                'mimeType': mime_type,
+                'params': post_data_params,
+                'text': ""
+            },
+            'metadata': {
+                'plugin': plugin,
+                'templates': templates,
+                'filepath': filepath,
+                'lineNumber': line_number,
+                'gitRepo': git_repo,
+            }
+        }})
+        
+    return {'log': {'entries': entries}}
+
+
+def convert_set_values_to_lists(endpoints):
+    """
+    To make our endpoint lists JSON serializable we need to convert the set values
+    to lists
+    :param endpoints: List of endpoint dictionaries
+    """
+    for endpoint in endpoints:
+        for k, v in endpoint.items():
+            if type(v) is set:
+                endpoint[k] = list(v)
+    
+    return endpoints
+
+
+def add_plugin_to_endpoints(endpoints, plugin):
+    """
+    Add the endpoint key to each endpoint dictionary in the list
+    :param endpoints: List of endpoint dictionaries
+    :param plugin: String of the plugin name
+    """
+    for endpoint in endpoints:
+        endpoint.update({
+            'plugin': plugin,
+        })
+    
+    return endpoints
 
 def main(sysargs=sys.argv[1:]):
     # parse through command line arguments
@@ -294,175 +238,127 @@ def main(sysargs=sys.argv[1:]):
     group.add_argument('-f', '--folder', action='store',
                        help='The project folder to scan. This can be provided '
                        'instead of a git repo.')
-    group.add_argument('-rcsv', '--repoCsv', action='store',
-                       help='The path to a list of repos in csv')
-    parser.add_argument('-u', '--baseUrl', action='store',
-                        help='The base url for the endpoints found. Only '
-                        'required when not supplying a csv.')
-    parser.add_argument('-d', '--workDir', action='store',
+    parser.add_argument('-u', '--base-url', action='store', required=True,
+                        help='The base url for the endpoints found')
+    parser.add_argument('-d', '--working-dir', action='store',
                         help='The directory to clone the repo into',
                         default='workingDir')
-    parser.add_argument('-s', '--database', action='store',
-                        help='The database URI ex. sqlite:///test.sqlite',
-                        default=None)
-    parser.add_argument('-o', '--output', action='store',
-                        help='The file to output endpoints in json format',
-                        default=None)
-    parser.add_argument('-c', '--clear', action='store_true',
-                        help='The flag to clear the database before running')
+    parser.add_argument('output_file', action='store',
+                        help='The file to output endpoints in HAR format. '
+                        'Use a \'-\' if you\'d like STDOUT.')
 
     args = parser.parse_args(sysargs)
 
     # Determine our working directory
-    workingDir = None
-    if args.workDir != 'workingDir':
-        workingDir = args.workDir
+    working_dir = None
+    if args.working_dir != 'workingDir':
+        working_dir = args.working_dir
     elif 'WES_WORKING_DIR' in os.environ:
-        workingDir = os.environ['WES_WORKING_DIR']
+        working_dir = os.environ['WES_WORKING_DIR']
     else:
-        workingDir = os.path.join(os.getcwd(), args.workDir)
+        working_dir = os.path.join(os.getcwd(), args.working_dir)
 
-    if not os.path.isdir(workingDir):
-        os.makedirs(workingDir)
+    if not os.path.isdir(working_dir):
+        os.makedirs(working_dir)
 
-    # Load the database
-    databaseUri = None
-    if args.database is not None:
-        databaseUri = args.database
-    elif 'WES_DATABASE_URI' in os.environ:
-        databaseUri = os.environ['WES_DATABASE_URI']
+    project = {
+        'base_url': args.base_url,
+        'git_repo': args.repo if hasattr(args, 'repo') else None,
+        'folder': args.folder if hasattr(args, 'folder') else None,
+        'product': None,
+        'product_group': None, 
+    }
+
+    # Create commonly used variables for each Repo
+    if project['folder']:
+        git_config_path = os.path.realpath(os.path.join(project['folder'], '.git', 'config'))
+
+        try:
+            if os.path.isfile(git_config_path):
+                import configparser
+                git_config = configparser.ConfigParser()
+                git_config.read_file(open(git_config_path))
+                project['git_repo'] = git_config['remote "origin"']['url']
+            else:
+                raise Exception('Not a git repo...')
+
+        except:
+            pass
+
+    if project['git_repo']:
+        repo_path = project['git_repo'].split(':')[-1]
+        if repo_path.endswith('.git'):
+            repo_path = repo_path[:-4]  # remove .git
+
+        project['product_group'] = repo_path.split('/')[0]
+        project['product'] = repo_path.split('/')[1]
+        project['folder'] = os.path.join(working_dir, project['product_group'], project['product'])
+        project['folder'] = os.path.realpath(project['folder'])
+
+        # Update the repo
+        success = clone_update_repo(project['folder'], project['git_repo'])
+        if not success:
+            logger.debug("Unable to clone or update the project.")
+            sys.exit()
+
+    # Make sure we're using the real path
+    project['folder'] = os.path.abspath(os.path.realpath(project['folder']))
+
+    logger.info("----------Processing the {}/{} project----------".format(project['product_group'], project['product']))
+
+    # Find and import all framework plugins
+    framework_plugins = find_framework_plugins()
+    plugins = import_all_framework_plugins(framework_plugins)
+
+    # Load up the processors so they only preprocess once per project
+    processors = {
+        'java': JavaProcessor(project['folder']),
+        'python': PythonProcessor(project['folder'])
+    }
+    logger.info('Preprocessing the project...')
+    for name, processor in processors.items():
+        processor.load_project()
+
+    endpoints = []
+
+    # Loop through all the plugins
+    for plugin in plugins:
+        plugin_obj = plugin.CustomFramework(working_dir=project['folder'], processors=processors)
+
+        # If the project is identified by the plugin try to find the endpoints
+        # for the project with the find_endpoints() method
+        if plugin_obj.identify():
+            plugin_name = plugin.__name__.replace('wes.framework_plugins.plugin_', '')
+            logger.info("Identified the project as a %s project.", plugin_name)
+
+            plugin_endpoints = plugin_obj.find_endpoints()
+
+            # convert sets to lists so they're json serializable
+            plugin_endpoints = convert_set_values_to_lists(plugin_endpoints)
+
+            # add in plugin to the endpoint dictionaries
+            plugin_endpoints = add_plugin_to_endpoints(plugin_endpoints, plugin_name)
+
+            # add to complete list of endpoints
+            if plugin_endpoints:
+                endpoints += plugin_endpoints
+
+    # seperate endpoints into individual methods and paths
+    endpoints = seperate_endpoints(endpoints)
+
+    # convert list of endpoint dictionaries to har format
+    har_endpoints = convert_endpoints_list_to_har(endpoints, project)
+
+    # TODO: Log how many endpoints were found
+    logger.info('Found {} endpoints in the project.'.format(len(endpoints)))
+
+    # Output the results to STDOUT or a file
+    if args.output_file == '-':
+        print(json.dumps(har_endpoints, indent=1))
     else:
-        sqlite_file = os.path.join(workingDir, 'endpoints.sqlite')
-        databaseUri = 'sqlite:///' + sqlite_file
-        if not os.path.exists(sqlite_file):
-            open(sqlite_file, 'w').close()
-
-    db = load_db(databaseUri=databaseUri)
-
-    # Clear the database, if requested
-    if args.clear:
-        s = db()
-        delete_all_data(s)
-        s.close()
-
-    projects = []
-    if args.repoCsv:
-        projects = load_projects_csv(args.repoCsv)
-    else:
-        # check args for issues
-        if not hasattr(args, 'baseUrl') and args.baseUrl:
-            raise argparse.ArgumentTypeError("If supplying a git repo you must "
-                                             "include a base url.")
-        if ((not hasattr(args, 'repo') and args.repo) or
-             (not hasattr(args, 'folder') and args.folder)):
-            raise argparse.ArgumentTypeError("If not supplying a csv you must "
-                                             "supply a repo or folder.")
-
-        if hasattr(args, 'repo') and args.repo:
-            projects.append({'baseUrl': args.baseUrl, 'gitRepo': args.repo})
-        elif hasattr(args, 'folder') and args.folder:
-            projects.append({'baseUrl': args.baseUrl, 'folder': os.path.realpath(args.folder)})
-
-    for project in projects:
-        projectRepoPath = None
-        projectName = None
-        productGroup = None
-
-        if 'gitRepo' in project:
-            # Create commonly used variables for each Repo
-            projectRepoPath = project['gitRepo'].split(':')[-1][:-4]
-            projectName = project['gitRepo'].split('/')[-1][:-4]
-            productGroup = projectRepoPath.split('/')[0]
-
-        elif 'folder' in project:
-            gitConfigPath = os.path.realpath(os.path.join(project['folder'], '.git', 'config'))
-
-            try:
-                if os.path.isfile(gitConfigPath):
-                    import configparser
-                    gitConfig = configparser.ConfigParser()
-                    gitConfig.read_file(open(gitConfigPath))
-                    project['gitRepo'] = gitConfig['remote "origin"']['url']
-
-                    # Create commonly used variables for each Repo
-                    projectRepoPath = project['gitRepo'].split(':')[-1][:-4]
-                    projectName = project['gitRepo'].split('/')[-1][:-4]
-                    productGroup = projectRepoPath.split('/')[0]
-                else:
-                    raise Exception('Not a git repo...')
-
-            except:
-                project['gitRepo'] = None
-                projectRepoPath = None
-                projectName = None
-                productGroup = None
-
-        logger.info("----------Processing the %s project----------", projectRepoPath)
-
-        if 'folder' in project:
-            projectFolder = os.path.realpath(project['folder'])
-        elif 'gitRepo' in project:
-            groupFolder = os.path.join(workingDir, productGroup)
-            projectFolder = os.path.join(groupFolder, projectName)
-
-            # clone/update the repositories
-            cloned = clone_update_repo(projectFolder, project['gitRepo'])
-            if not cloned:
-                logger.debug("Unable to clone or update the project. Trying next project.")
-                continue
-
-        # Find and import all framework plugins
-        framework_plugins = find_framework_plugins()
-        plugins = import_all_framework_plugins(framework_plugins)
-
-        # Load up the processors so they only preprocess once per project
-        processors = {
-            'java': JavaProcessor(projectFolder),
-            'python': PythonProcessor(projectFolder)
-        }
-        logger.info('Preprocessing the project...')
-        for name, processor in processors.items():
-            processor.load_project()
-
-        # Loop through all the plugins
-        for plugin in plugins:
-            pluginObj = plugin.CustomFramework(workingDir=os.path.abspath(projectFolder), processors=processors)
-
-            # If the project is identified by the plugin try to find the endpoints
-            # for the project with the find_endpoints() method
-            if pluginObj.identify():
-                logger.info("Identified the project as a %s project.", plugin.__name__[29:])
-
-                endpoints = pluginObj.find_endpoints()
-
-                if endpoints:
-                    endpoints = extend_endpoints_with_metadata(endpoints,
-                                                               project['gitRepo'],
-                                                               productGroup,
-                                                               projectName,
-                                                               plugin.__name__[29:],
-                                                               project['baseUrl'])
-
-                    update_db_with_endpoints(endpoints, db)
-
-    # Remove stale records from the database
-    remove_stale_db_records(db)
-
-    # Query the db to count records
-    s = db()
-    dbEndpoints = s.query(Endpoint)
-    dbParams = s.query(Parameter).filter(Parameter.endpoints is not None)
-    s.close()
-
-    # Tally up all of the endpoints in the database
-    logger.info("Total of %s endpoints in the database.", dbEndpoints.count())
-    logger.info("Total of %s parameters in the database.", dbParams.count())
-
-    # Output endpoints to JSON file
-    if args.output:
         with open(args.output, 'w') as f:
-            results = list(map(lambda x: x.to_dict(), dbEndpoints))
-            json.dump({'endpoints': results}, f, indent=1, default=str)
+            json.dump(har_endpoints, f, indent=1, default=str)
+            
 
 if __name__ == '__main__':
     main()

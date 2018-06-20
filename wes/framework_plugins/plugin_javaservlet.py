@@ -6,8 +6,8 @@ import logging
 import sys
 import os
 from copy import copy
-wesDir = os.path.realpath(os.path.join(__file__, "..", ".."))
-sys.path.append(wesDir)
+wes_dir = os.path.realpath(os.path.join(__file__, "..", ".."))
+sys.path.append(wes_dir)
 from wes.framework_plugins.common import Framework
 
 try:
@@ -20,8 +20,8 @@ logger = logging.getLogger("JavaServlet")
 
 
 class CustomFramework(Framework):
-    def __init__(self, workingDir, processors):
-        self.workingDir = workingDir
+    def __init__(self, working_dir, processors):
+        self.working_dir = working_dir
         self.endpoints = []
         self.processor = processors['java']
 
@@ -31,8 +31,8 @@ class CustomFramework(Framework):
         application and whether it should be processed by this plugin.
         :return: Boolean
         """
-        globPath = os.path.join(self.workingDir, '**', 'WEB-INF', 'web.xml')
-        files = glob.glob(globPath, recursive=True)
+        glob_path = os.path.join(self.working_dir, '**', 'WEB-INF', 'web.xml')
+        files = glob.glob(glob_path, recursive=True)
 
         if len(files) > 0:
             return True
@@ -46,10 +46,10 @@ class CustomFramework(Framework):
         :return: A list of dictionaries of Endpoints
         """
         # find the web.xml file
-        webXmlLocation = self._find_web_xml()
+        web_xml_location = self._find_web_xml()
 
         # find all servlets in web.xml
-        servlets = self._find_servlet_classes(webXmlLocation)
+        servlets = self._find_servlet_classes(web_xml_location)
 
         # If no servlets were found we can just return an empty list
         if not servlets:
@@ -60,7 +60,7 @@ class CustomFramework(Framework):
 
         # find the paths for the remaining servlets
         for i in range(len(self.endpoints)):
-            self.endpoints[i]['endpoints'] = self._find_path_for_servlet(webXmlLocation, self.endpoints[i]['name'])
+            self.endpoints[i]['endpoints'] = self._find_path_for_servlet(web_xml_location, self.endpoints[i]['name'])
 
         # Remove endpoints that we couldn't find an endpoint/path for
         self.endpoints = list(filter(lambda x: 'endpoints' in x and x['endpoints'], self.endpoints))
@@ -70,9 +70,9 @@ class CustomFramework(Framework):
             if 'class' in self.endpoints[i]:
                 self.endpoints[i]['filepath'] = self.processor.strip_work_dir(self._find_class_file_path(self.endpoints[i]['class']))
             elif 'templates' in self.endpoints[i]:
-                self.endpoints[i]['filepath'] = self.processor.strip_work_dir(webXmlLocation)
+                self.endpoints[i]['filepath'] = self.processor.strip_work_dir(web_xml_location)
                 self.endpoints[i]['templates'] = [
-                    self.processor.webContextDir.rstrip('/') + '/' + self.endpoints[i]['templates'].lstrip('/')
+                    self.processor.web_context_dir.rstrip('/') + '/' + self.endpoints[i]['templates'].lstrip('/')
                 ]
 
         # look for JSPs and parameters for each endpoint
@@ -94,27 +94,27 @@ class CustomFramework(Framework):
 
         # Restructure the endpoints to only have one method and add line number
         # for each method to the endpoint
-        newEndpoints = []
+        new_endpoints = []
         for ep in self.endpoints:
             if ep['methods']:
                 for method in ep['methods']:
-                    newEndpoint = copy(ep)
-                    newEndpoint['methods'] = [method]
+                    new_endpoint = copy(ep)
+                    new_endpoint['methods'] = [method]
 
-                    if newEndpoint['filepath'] in self.processor.javaCompilationUnits:
-                        compilationUnit = self.processor.javaCompilationUnits[newEndpoint['filepath']]
-                        methodDeclarations = compilationUnit.filter(javalang.tree.MethodDeclaration)
+                    if new_endpoint['filepath'] in self.processor.java_compilation_units:
+                        compilation_unit = self.processor.java_compilation_units[new_endpoint['filepath']]
+                        method_declarations = compilation_unit.filter(javalang.tree.MethodDeclaration)
 
-                        for path, md in methodDeclarations:
+                        for path, md in method_declarations:
                             if md.name == "do" + method.title():
-                                newEndpoint['lineNumber'] = md.position[0]
-                                newEndpoints.append(newEndpoint)
+                                new_endpoint['line_number'] = md.position[0]
+                                new_endpoints.append(new_endpoint)
                                 break
 
             else:
-                newEndpoints.append(ep)
+                new_endpoints.append(ep)
 
-        self.endpoints = newEndpoints
+        self.endpoints = new_endpoints
 
         return self._clean_endpoints(self.endpoints)
 
@@ -125,7 +125,7 @@ class CustomFramework(Framework):
         **/WEB-INF/web.xml
         :return: String with the path to the file
         """
-        globPath = os.path.join(self.workingDir, '**', 'WEB-INF', 'web.xml')
+        globPath = os.path.join(self.working_dir, '**', 'WEB-INF', 'web.xml')
         files = glob.glob(globPath, recursive=True)
 
         # We should only ever find one. We're just going to choose the first if
@@ -135,91 +135,91 @@ class CustomFramework(Framework):
         except IndexError as e:
             return None
 
-    def _find_servlet_classes(self, webXmlLocation):
+    def _find_servlet_classes(self, web_xml_location):
         """
         This method finds all the referenced classes along with the name assigned to them within a web.xml
-        :param webXmlLocation: The path to the web.xml file
+        :param web_xml_location: The path to the web.xml file
         :return: A list of dictionaries structured like so {'name': ..., 'class': ...}
         """
         # Parse the XML file
-        self._load_xml(webXmlLocation)
-        if self.rootElement is not None:
+        self._load_xml(web_xml_location)
+        if self.root_element is not None:
             # loop through all the servlets
             servlets = []
             if self.namespace is not None:
-                searchString = ".//{{{}}}servlet".format(self.namespace)
+                search_string = ".//{{{}}}servlet".format(self.namespace)
             else:
-                searchString = ".//servlet"
-            for servletElement in self.rootElement.iterfind(searchString):
+                search_string = ".//servlet"
+            for servlet_element in self.root_element.iterfind(search_string):
                 servlet = {}
-                for child in servletElement:
+                for child in servlet_element:
                     if self.namespace is not None:
-                        classSearchString = "{{{}}}servlet-class".format(self.namespace)
-                        nameSearchString = "{{{}}}servlet-name".format(self.namespace)
-                        jspSearchString = "{{{}}}jsp-file".format(self.namespace)
+                        class_search_string = "{{{}}}servlet-class".format(self.namespace)
+                        name_search_string = "{{{}}}servlet-name".format(self.namespace)
+                        jsp_search_string = "{{{}}}jsp-file".format(self.namespace)
                     else:
-                        classSearchString = "servlet-class"
-                        nameSearchString = "servlet-name"
-                        jspSearchString = "jsp-file"
+                        class_search_string = "servlet-class"
+                        name_search_string = "servlet-name"
+                        jsp_search_string = "jsp-file"
 
-                    if str(child.tag).strip() == classSearchString:
+                    if str(child.tag).strip() == class_search_string:
                         servlet['class'] = str(child.text).strip()
-                    elif str(child.tag).strip() == nameSearchString:
+                    elif str(child.tag).strip() == name_search_string:
                         servlet['name'] = str(child.text).strip()
-                    elif str(child.tag).strip() == jspSearchString:
+                    elif str(child.tag).strip() == jsp_search_string:
                         servlet['templates'] = str(child.text).strip()
 
                 if servlet:
                     servlets.append(servlet)
             return servlets
 
-    def _find_path_for_servlet(self, webXmlLocation, servletName):
+    def _find_path_for_servlet(self, web_xml_location, servlet_name):
         """
         This method finds the uri path assigned to a servlet name
-        :param webXmlLocation: The path to the web.xml file
-        :param servletName: the name of the servlet
+        :param web_xml_location: The path to the web.xml file
+        :param servlet_name: the name of the servlet
         :return: The path to a servlet or None if not found
         """
         # Parse the XML file
-        self._load_xml(webXmlLocation)
-        if self.namespace is not None and self.rootElement is not None:
+        self._load_xml(web_xml_location)
+        if self.namespace is not None and self.root_element is not None:
             # loop through all the servlet-mappings
-            if None in self.rootElement.nsmap:
-                searchString = ".//{{{}}}servlet-mapping".format(self.namespace)
+            if None in self.root_element.nsmap:
+                search_string = ".//{{{}}}servlet-mapping".format(self.namespace)
             else:
-                searchString = ".//servlet-mapping"
-            for servletElement in self.rootElement.iterfind(searchString):
+                search_string = ".//servlet-mapping"
+            for servlet_element in self.root_element.iterfind(search_string):
                 servlet = {
                     'path': set(),
                     'name': None
                 }
-                for child in servletElement:
+                for child in servlet_element:
                     if self.namespace is not None:
-                        urlSearchString = "{{{}}}url-pattern".format(self.namespace)
-                        nameSearchString = "{{{}}}servlet-name".format(self.namespace)
+                        url_search_string = "{{{}}}url-pattern".format(self.namespace)
+                        name_search_string = "{{{}}}servlet-name".format(self.namespace)
                     else:
-                        urlSearchString = "url-pattern"
-                        nameSearchString = "servlet-name"
+                        url_search_string = "url-pattern"
+                        name_search_string = "servlet-name"
 
-                    if str(child.tag).strip() == urlSearchString:
+                    if str(child.tag).strip() == url_search_string:
                         servlet['path'].add(str(child.text).strip())
-                    elif str(child.tag).strip() == nameSearchString:
+                    elif str(child.tag).strip() == name_search_string:
                         servlet['name'] = str(child.text).strip()
 
-                if servlet and 'name' in servlet and servlet['name'] == servletName:
+                if servlet and 'name' in servlet and servlet['name'] == servlet_name:
                     return servlet['path']
 
-    def _is_spring_servlet_dipatcher_or_external(self, servletClass):
+    def _is_spring_servlet_dipatcher_or_external(self, servlet_class):
         """
         This method returns true or false for whether the supplied class
         is a spring servlet or an external class
-        :param servletClass: The fully qualified name for a class. Ex: 'com.indeed.security.wes.west.servlets.JS001'
+        :param servlet_class: The fully qualified name for a class. Ex: 'com.indeed.security.wes.west.servlets.JS001'
         :return: Boolean of whether a class is a within the current project
         """
         # Dynamically check if the class is a subclass of DispatcherServlet
-        classPath = self._find_class_file_path(servletClass)
-        if classPath and os.path.isfile(classPath):
-            test = codecs.open(classPath, 'r', 'utf-8', 'ignore').read()
+        class_path = self._find_class_file_path(servlet_class)
+        if class_path and os.path.isfile(class_path):
+            test = codecs.open(class_path, 'r', 'utf-8', 'ignore').read()
             if 'extends DispatcherServlet' in test:
                 return True
             else:
@@ -227,28 +227,28 @@ class CustomFramework(Framework):
         else:
             return True
 
-    def _find_class_file_path(self, className):
+    def _find_class_file_path(self, class_name):
         """
         This method attempts to find the actual filepath for the class fqn
-        :param className: The fully qualified name for a class. Ex: 'com.indeed.security.wes.west.servlets.JS001'
+        :param class_name: The fully qualified name for a class. Ex: 'com.indeed.security.wes.west.servlets.JS001'
         :return: The constructed file path
         """
         try:
-            codeBaseDir = self.processor.find_code_base_dir()
+            code_base_dir = self.processor.find_code_base_dir()
 
-            classPath = os.path.join(codeBaseDir,
-                                     className.replace('.', '/')) + '.java'
+            class_path = os.path.join(code_base_dir,
+                                     class_name.replace('.', '/')) + '.java'
 
-            if os.path.isfile(classPath):
-                return classPath
+            if os.path.isfile(class_path):
+                return class_path
             else:
-                # Let's attempt to find with classLookupTable
-                if className in self.processor.classLookupTable:
+                # Let's attempt to find with class_lookup_table
+                if class_name in self.processor.class_lookup_table:
                     # We found the file
-                    classPath = os.path.join(self.workingDir,
-                                             self.processor.classLookupTable[className][2])
+                    class_path = os.path.join(self.working_dir,
+                                             self.processor.class_lookup_table[class_name][2])
 
-                    return classPath
+                    return class_path
 
         except TypeError:
             return None
@@ -260,31 +260,31 @@ class CustomFramework(Framework):
         :param endpoint: The endpoint dictionary which contains the 'filepath' key
         :return: The enriched endpoint dictionary
         """
-        if endpoint['filepath'] in self.processor.javaCompilationUnits:
-            compilationUnit = self.processor.javaCompilationUnits[endpoint['filepath']]
-            methodInvocations = compilationUnit.filter(javalang.tree.MethodInvocation)
+        if endpoint['filepath'] in self.processor.java_compilation_units:
+            compilation_unit = self.processor.java_compilation_units[endpoint['filepath']]
+            method_invocations = compilation_unit.filter(javalang.tree.MethodInvocation)
 
-            for path, mi in methodInvocations:
+            for path, mi in method_invocations:
                 if mi.member == "getParameter":
                     if type(mi.arguments) is list:
                         for arg in mi.arguments:
                             if type(arg) is javalang.tree.Literal:
                                 value = arg.value.strip("\"'")
-                                paramDict = {
+                                param_dict = {
                                     'name': value,
                                     'filepath': endpoint['filepath'],
-                                    'lineNumber': arg.position[0]
+                                    'line_number': arg.position[0]
                                 }
-                                endpoint['params'].append(paramDict)
+                                endpoint['params'].append(param_dict)
                             elif type(arg) is javalang.tree.MemberReference:
-                                value = self.processor.resolve_member_reference(compilationUnit, arg.member, arg.qualifier)
+                                value = self.processor.resolve_member_reference(compilation_unit, arg.member, arg.qualifier)
                                 if value:
-                                    paramDict = {
+                                    param_dict = {
                                         'name': value,
                                         'filepath': endpoint['filepath'],
-                                        'lineNumber': arg.position[0]
+                                        'line_number': arg.position[0]
                                     }
-                                    endpoint['params'].append(paramDict)
+                                    endpoint['params'].append(param_dict)
 
         return endpoint
 
@@ -295,37 +295,37 @@ class CustomFramework(Framework):
         :return: The enriched endpoint dictionary
         """
         # look for references to JSPs from within the endpoint's scope
-        templatePaths = set()
+        template_paths = set()
 
         # if jsp was found in web.xml we'll want to process that too
         if 'templates' in endpoint:
-            templatePaths |= set(endpoint['templates'])
+            template_paths |= set(endpoint['templates'])
 
-        if endpoint['filepath'] in self.processor.javaCompilationUnits:
+        if endpoint['filepath'] in self.processor.java_compilation_units:
             # look for getRequestDispatcher()
-            compilationUnit = self.processor.javaCompilationUnits[endpoint['filepath']]
-            methodInvocations = compilationUnit.filter(javalang.tree.MethodInvocation)
-            for path, mi in methodInvocations:
+            compilation_unit = self.processor.java_compilation_units[endpoint['filepath']]
+            method_invocations = compilation_unit.filter(javalang.tree.MethodInvocation)
+            for path, mi in method_invocations:
                 if mi.member == "getRequestDispatcher":
                     if type(mi.arguments[0]) is javalang.tree.Literal:
                         value = mi.arguments[0].value.strip("\"'")
                         if value.endswith(".jsp"):
-                            templatePaths.add(value.lstrip("/"))
+                            template_paths.add(value.lstrip("/"))
                     elif type(mi.arguments[0]) is javalang.tree.MemberReference:
                         value = self.processor.resolve_member_reference(path[0], mi.arguments[0].member,
                                                                         mi.arguments[0].qualifier)
                         if value:
                             if value.endswith(".jsp"):
-                                templatePaths.add(value.lstrip("/"))
+                                template_paths.add(value.lstrip("/"))
 
         # Add JSP references to endpoint
-        fullTemplatePaths = []
-        for path in templatePaths:
-            if self.processor.webContextDir not in path:
-                fullTemplatePaths.append(self.processor.webContextDir + path)
+        full_template_paths = []
+        for path in template_paths:
+            if self.processor.web_context_dir not in path:
+                full_template_paths.append(self.processor.web_context_dir + path)
             else:
-                fullTemplatePaths.append(path)
-        endpoint['templates'] = set(fullTemplatePaths)
+                full_template_paths.append(path)
+        endpoint['templates'] = set(full_template_paths)
 
         return endpoint
 
@@ -335,15 +335,15 @@ class CustomFramework(Framework):
         :param endpoint: The endpoint dictionary which contains a 'templates' key
         :return: The enriched endpoint dictionary
         """
-        templatePaths = endpoint['templates']
-        templatePaths = list(map(lambda x: x.replace(self.processor.webContextDir, ''), templatePaths))
+        template_paths = endpoint['templates']
+        template_paths = list(map(lambda x: x.replace(self.processor.web_context_dir, ''), template_paths))
 
         # Process the JSPs found
-        for template in templatePaths:
-            foundParams = self.processor.get_jsp_params(template)
-            foundParams = list(map(lambda x: {'name': x, 'filepath': template}, foundParams))
-            if foundParams:
-                endpoint['params'] += foundParams
+        for template in template_paths:
+            found_params = self.processor.get_jsp_params(template)
+            found_params = list(map(lambda x: {'name': x, 'filepath': template}, found_params))
+            if found_params:
+                endpoint['params'] += found_params
 
         return endpoint
 
@@ -353,11 +353,11 @@ class CustomFramework(Framework):
         :param endpoint: The endpoint dictionary which contains a 'filepath' key
         :return: The enriched endpoint dictionary
         """
-        if endpoint['filepath'] in self.processor.javaCompilationUnits:
-            compilationUnit = self.processor.javaCompilationUnits[endpoint['filepath']]
-            methodDeclarations = compilationUnit.filter(javalang.tree.MethodDeclaration)
+        if endpoint['filepath'] in self.processor.java_compilation_units:
+            compilation_unit = self.processor.java_compilation_units[endpoint['filepath']]
+            method_declarations = compilation_unit.filter(javalang.tree.MethodDeclaration)
 
-            for path, md in methodDeclarations:
+            for path, md in method_declarations:
                 if md.name == "doGet":
                     endpoint['methods'].add("GET")
                 elif md.name == "doPost":
@@ -383,16 +383,16 @@ class CustomFramework(Framework):
         """
         try:
             parser = ET.XMLParser(resolve_entities=False)
-            self.elementTree = ET.parse(filepath, parser)
-            self.rootElement = self.elementTree.getroot()
-            if None in self.rootElement.nsmap:
-                self.namespace = self.rootElement.nsmap[None]
+            self.element_tree = ET.parse(filepath, parser)
+            self.root_element = self.element_tree.getroot()
+            if None in self.root_element.nsmap:
+                self.namespace = self.root_element.nsmap[None]
             else:
                 self.namespace = None
         except Exception as e:
             logger.warning("There was a problem parsing the xml: %s", e)
-            self.elementTree = None
-            self.rootElement = None
+            self.element_tree = None
+            self.root_element = None
 
     def _convert_endpoint_to_python_regex(self, endpoint):
         """
@@ -411,9 +411,9 @@ class CustomFramework(Framework):
         :param endpoints: List of endpoint dictionaries
         :return: List of cleaned endpoints
         """
-        cleanEndpoints = []
+        clean_endpoints = []
         for ep in endpoints:
-            cleanEndpoint = {}
+            clean_endpoint = {}
             for k, v in ep.items():
                 if k == 'endpoints':
                     cleaned_eps = set()
@@ -423,8 +423,8 @@ class CustomFramework(Framework):
                         else:
                             cleaned_eps.add(ep)
                     v = cleaned_eps
-                if k in ['endpoints', 'params', 'methods', 'filepath', 'templates', 'lineNumber']:
-                    cleanEndpoint[k] = v
-            if 'endpoints' in cleanEndpoint:
-                cleanEndpoints.append(cleanEndpoint)
-        return cleanEndpoints
+                if k in ['endpoints', 'params', 'methods', 'filepath', 'templates', 'line_number']:
+                    clean_endpoint[k] = v
+            if 'endpoints' in clean_endpoint:
+                clean_endpoints.append(clean_endpoint)
+        return clean_endpoints
