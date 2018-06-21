@@ -473,7 +473,7 @@ class CustomFramework(Framework):
                             # Happens when the parameter name is dynamically generated
                             # <reqName>.cleaned_data['first_name' + i]
                             msg = "Couldn't resolve parameter name. File '%s' line '%d'"
-                            logger.warning(msg, endpoints[i]['viewFilepath'], subscript.lineno)
+                            logger.warning(msg, endpoints[i]['view_filepath'], subscript.lineno)
                             continue
 
                         if type(value) is bytes:
@@ -497,7 +497,7 @@ class CustomFramework(Framework):
                             # Happens when the parameter name is dynamically generated
                             # <reqName>.<method_in_caps>["id" + i]
                             msg = "Couldn't resolve parameter name. File '%s' line '%d'"
-                            logger.warning(msg, endpoints[i]['viewFilepath'], subscript.lineno)
+                            logger.warning(msg, endpoints[i]['view_filepath'], subscript.lineno)
                             continue
 
                         if type(value) is bytes:
@@ -522,7 +522,7 @@ class CustomFramework(Framework):
                             # Happens when the parameter name is dynamically generated
                             # self.request.<method_in_caps>["id" + i]
                             msg = "Couldn't resolve parameter name. File '%s' line '%d'"
-                            logger.warning(msg, endpoints[i]['viewFilepath'], subscript.lineno)
+                            logger.warning(msg, endpoints[i]['view_filepath'], subscript.lineno)
                             continue
 
                         if type(value) is bytes:
