@@ -622,25 +622,35 @@ class CustomFramework(Framework):
 
     def _convert_endpoint_to_python_regex(self, endpoint):
         """
-        Converts a java regex endpoint string to be in a python format
+        Converts a spring regex endpoint string to be in a python format. The spring variables regex is:
+        (?<!\$)     lookbehind to avoid ${} placeholders
+        {           delimiter
+        ([^:]+)     capture group for name
+        (:[^}]+)?   capture group for regex, if specified
+        }           delimiter
         :param endpoint: The endpoint string with regex
         :return: returns string with regex convert to a python recognized regex
         """
-        if '*' in endpoint:
-            endpoint = re.sub(r'(?<!\*)\*(?!\*)', '[^/]*', endpoint)
-        if '**' in endpoint:
-            endpoint = endpoint.replace('**', '.*')
-        if '{' in endpoint and '}' in endpoint: # pragma: no cover
-            # TODO: this is really messy I should really swap this with a tokenizing approach
-            while re.match(r'.*{\w+:.+}.*', endpoint):
-                if re.match(r'.*{\w+:.*({.*})+.*}.*', endpoint):
-                    endpoint = re.sub(r'{(\w+):(.*({.*})+.*)}', r'(?P<\1>\2)', endpoint)
-                else:
-                    endpoint = re.sub(r'{(\w+):([^{}]+)}', r'(?P<\1>\2)', endpoint)
-            while re.match(r'.*{[^\d{}]+}.*', endpoint):
-                endpoint = re.sub(r'{([^\d{}]+)}', r'(?P<\1>[^/]*)', endpoint)
+        def replace_groups(m):
+            # Replace dashes with underscores in name and remove colon from regex
+            return r'(?P<{}>{})'.format(m.group(1).replace('-', '_'), m.group(2)[1:] if m.group(2) else '[^/]*')
 
-        return endpoint
+        # Split into paths
+        endpoint_paths = endpoint.split('/')
+        spring_variables = re.compile(r'(?<!\$){([^:]+)(:[^}]+)?}')
+
+        # Convert regex for each path
+        for i, path in enumerate(endpoint_paths):
+            if path == '*':
+                endpoint_paths[i] = '[^/]*'
+            elif path == '**':
+                endpoint_paths[i] = '.*'
+            elif '{' in path and '}' in path:
+                endpoint_paths[i] = spring_variables.sub(replace_groups, path)
+            else:
+                continue
+
+        return '/'.join(endpoint_paths)
 
     def _clean_endpoints(self, endpoints):
         """

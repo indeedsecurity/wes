@@ -516,6 +516,7 @@ def test_convert_endpoint_to_python_regex(plugin):
     assert plugin._convert_endpoint_to_python_regex('mypath/**/testing') == 'mypath/.*/testing'
     assert plugin._convert_endpoint_to_python_regex('/03/{one:[a-zA-Z0-9]+}') == '/03/(?P<one>[a-zA-Z0-9]+)'
     assert plugin._convert_endpoint_to_python_regex('/04/{one:[a-zA-Z]+}/{two:[0-9]+}') == '/04/(?P<one>[a-zA-Z]+)/(?P<two>[0-9]+)'
+    assert plugin._convert_endpoint_to_python_regex('/05/{five-url:[a-zA-Z0-9]+}') == '/05/(?P<five_url>[a-zA-Z0-9]+)'
 
 def test_clean_endpoints(plugin):
     endpoints = [
