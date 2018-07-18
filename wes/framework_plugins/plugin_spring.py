@@ -523,12 +523,12 @@ class CustomFramework(Framework):
         :return: The parameter name for the annotation
         """
         if hasattr(anno, 'element') and anno.element:
-            params = anno.element
-            parameters = self._parse_anno_args_to_dict(params)
+            parameters = self._parse_anno_args_to_dict(anno.element)
             resolved_parameters = self._resolve_values_in_dict(parameters, tree)
 
-            if 'value' in resolved_parameters:
-                return resolved_parameters['value']
+            for attr in ['value', 'name']:
+                if attr in resolved_parameters:
+                    return resolved_parameters[attr]
 
     def _find_request_get_param(self, endpoint):
         """
