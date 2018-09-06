@@ -32,6 +32,8 @@ class CustomFramework(Framework):
         glob_path = os.path.join(self.working_dir, '**', '*.py')
         files = glob.glob(glob_path, recursive=True)
 
+        files = list(filter(lambda x: os.path.isfile(x), files))
+
         # if there aren't any *.py files then it's not a django project
         if not files:
             return False
