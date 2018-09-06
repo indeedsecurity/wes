@@ -14,7 +14,6 @@ setup(
         'GitPython',
         'lxml',
         'typed_ast',
-        'flask',
         'pytest',
         'pytest-mock',
         'pytest-cov',
