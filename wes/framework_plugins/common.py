@@ -22,7 +22,7 @@ JAVA_DOT_LANG_IMPORTS = [
 ]
 
 # configure logging
-logger = logging.getLogger("Common")
+logger = logging.getLogger(__name__)
 
 
 class Framework:

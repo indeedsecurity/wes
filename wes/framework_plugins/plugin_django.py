@@ -12,7 +12,7 @@ sys.path.append(wes_dir)
 from wes.framework_plugins.common import Framework
 
 # configure logging
-logger = logging.getLogger("Django")
+logger = logging.getLogger(__name__)
 
 
 class CustomFramework(Framework):

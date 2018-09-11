@@ -17,7 +17,7 @@ from wes.framework_plugins.common import JavaProcessor, PythonProcessor
 
 # configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s : %(levelname)s : %(message)s", datefmt="%H:%M:%S")
-logger = logging.getLogger("Main")
+logger = logging.getLogger(__name__)
 
 
 def clone_update_repo(project_folder, git_repo):
