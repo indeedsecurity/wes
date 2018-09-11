@@ -6,7 +6,7 @@ if sys.version_info[0] < 3 or sys.version_info[1] < 3:
 
 setup(
     name='wes',
-    version='2.0.6',
+    version='2.0.7',
     packages=find_packages(),
     author='Caleb Coffie',
     author_email='calebc@indeed.com',
