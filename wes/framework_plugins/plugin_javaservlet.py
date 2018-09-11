@@ -16,7 +16,7 @@ except ImportError:  # pragma: no cover
     import xml.etree.ElementTree as ET
 
 # configure logging
-logger = logging.getLogger("JavaServlet")
+logger = logging.getLogger(__name__)
 
 
 class CustomFramework(Framework):
