@@ -4,8 +4,7 @@ import glob
 import os
 import codecs
 import re
-from typed_ast import ast27, ast3, conversions
-import _ast3
+from typed_ast import ast27, ast3, conversions, _ast3
 import pickle
 import logging
 
