@@ -1,8 +1,7 @@
 import glob
 import codecs
 import logging
-import _ast3
-from typed_ast import ast3
+from typed_ast import ast3, _ast3
 # Add to wes to the sys path
 import sys
 import os

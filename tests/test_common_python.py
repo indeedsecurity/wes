@@ -4,8 +4,7 @@ import pytest
 from pprint import pprint
 from wes.main import clone_update_repo
 from wes.framework_plugins.common import PythonProcessor
-from typed_ast import ast3
-import _ast3
+from typed_ast import ast3, _ast3
 
 @pytest.fixture(scope="module")
 def processor(tmpdir_factory):
